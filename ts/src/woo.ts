@@ -946,7 +946,7 @@ export default class woo extends Exchange {
          * @param {string} type 'market' or 'limit'
          * @param {string} side 'buy' or 'sell'
          * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
+         * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @param {float} [params.triggerPrice] The price a trigger order is triggered at
          * @param {object} [params.takeProfit] *takeProfit object in params* containing the triggerPrice at which the attached take profit order will be triggered (perpetual swap markets only)
@@ -1137,7 +1137,7 @@ export default class woo extends Exchange {
          * @param {string} type 'market' or 'limit'
          * @param {string} side 'buy' or 'sell'
          * @param {float} amount how much of currency you want to trade in units of base currency
-         * @param {float} [price] the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders
+         * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
          * @param {object} [params] extra parameters specific to the exchange API endpoint
          * @param {float} [params.triggerPrice] The price a trigger order is triggered at
          * @param {float} [params.stopLossPrice] price to trigger stop-loss orders
@@ -1614,8 +1614,8 @@ export default class woo extends Exchange {
         const side = this.safeStringLower (order, 'side');
         const filled = this.omitZero (this.safeValue2 (order, 'executed', 'totalExecutedQuantity'));
         const average = this.omitZero (this.safeString2 (order, 'average_executed_price', 'averageExecutedPrice'));
-        const remaining = Precise.stringSub (cost, filled);
-        const fee = this.safeValue2 (order, 'total_fee', 'totalFee');
+        // const remaining = Precise.stringSub (cost, filled);
+        const fee = this.safeNumber2 (order, 'total_fee', 'totalFee');
         const feeCurrency = this.safeString2 (order, 'fee_asset', 'feeAsset');
         const transactions = this.safeValue (order, 'Transactions');
         const stopPrice = this.safeNumber (order, 'triggerPrice');
@@ -1656,7 +1656,7 @@ export default class woo extends Exchange {
             'average': average,
             'amount': amount,
             'filled': filled,
-            'remaining': remaining, // TO_DO
+            'remaining': undefined, // TO_DO
             'cost': cost,
             'trades': transactions,
             'fee': {
