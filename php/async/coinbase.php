@@ -753,7 +753,7 @@ class coinbase extends Exchange {
         );
     }
 
-    public function create_deposit_address(string $code, $params = array ()) {
+    public function create_deposit_address(string $code, $params = array ()): PromiseInterface {
         return Async\async(function () use ($code, $params) {
             /**
              * create a currency deposit $address
@@ -826,6 +826,7 @@ class coinbase extends Exchange {
                 'currency' => $code,
                 'tag' => $tag,
                 'address' => $address,
+                'network' => null,
                 'info' => $response,
             );
         }) ();
@@ -1552,7 +1553,20 @@ class coinbase extends Exchange {
             for ($i = 0; $i < count($perpetualData); $i++) {
                 $result[] = $this->parse_contract_market($perpetualData[$i], $perpetualFeeTier);
             }
-            return $result;
+            $newMarkets = array();
+            for ($i = 0; $i < count($result); $i++) {
+                $market = $result[$i];
+                $info = $this->safe_value($market, 'info', array());
+                $realMarketIds = $this->safe_list($info, 'alias_to', array());
+                $length = count($realMarketIds);
+                if ($length > 0) {
+                    $market['alias'] = $realMarketIds[0];
+                } else {
+                    $market['alias'] = null;
+                }
+                $newMarkets[] = $market;
+            }
+            return $newMarkets;
         }) ();
     }
 
@@ -1971,6 +1985,7 @@ class coinbase extends Exchange {
                     'withdraw' => null,
                     'fee' => null,
                     'precision' => null,
+                    'networks' => array(),
                     'limits' => array(
                         'amount' => array(
                             'min' => $this->safe_number($currency, 'min_size'),
@@ -2313,10 +2328,11 @@ class coinbase extends Exchange {
             $askVolume = $this->safe_number($asks[0], 'size');
         }
         $marketId = $this->safe_string($ticker, 'product_id');
+        $market = $this->safe_market($marketId, $market);
         $last = $this->safe_number($ticker, 'price');
         $datetime = $this->safe_string($ticker, 'time');
         return $this->safe_ticker(array(
-            'symbol' => $this->safe_symbol($marketId, $market),
+            'symbol' => $market['symbol'],
             'timestamp' => $this->parse8601($datetime),
             'datetime' => $datetime,
             'bid' => $bid,
@@ -2431,7 +2447,7 @@ class coinbase extends Exchange {
             //             "ending_before":null,
             //             "starting_after":null,
             //             "previous_ending_before":null,
-            //             "next_starting_after":"6b17acd6-2e68-5eb0-9f45-72d67cef578b",
+            //             "next_starting_after":"6b17acd6-2e68-5eb0-9f45-72d67cef578a",
             //             "limit":100,
             //             "order":"desc",
             //             "previous_uri":null,
@@ -4738,7 +4754,7 @@ class coinbase extends Exchange {
         }) ();
     }
 
-    public function fetch_positions(?array $symbols = null, $params = array ()) {
+    public function fetch_positions(?array $symbols = null, $params = array ()): PromiseInterface {
         return Async\async(function () use ($symbols, $params) {
             /**
              * fetch all open $positions

@@ -393,6 +393,7 @@ class bingx extends Exchange {
                                 'uid' => 1,
                                 'apiKey/query' => 2,
                                 'account/apiPermissions' => 5,
+                                'allAccountBalance' => 2,
                             ),
                             'post' => array(
                                 'innerTransfer/authorizeSubAccount' => 1,
@@ -720,7 +721,7 @@ class bingx extends Exchange {
             //
             //    {
             //      "code" => 0,
-            //      "timestamp" => 1702623271477,
+            //      "timestamp" => 1702623271476,
             //      "data" => array(
             //        {
             //          "coin" => "BTC",
@@ -806,7 +807,7 @@ class bingx extends Exchange {
                     );
                 }
                 $active = $depositEnabled || $withdrawEnabled;
-                $result[$code] = array(
+                $result[$code] = $this->safe_currency_structure(array(
                     'info' => $entry,
                     'code' => $code,
                     'id' => $currencyId,
@@ -818,7 +819,7 @@ class bingx extends Exchange {
                     'networks' => $networks,
                     'fee' => $fee,
                     'limits' => $defaultLimits,
-                );
+                ));
             }
             return $result;
         }) ();
@@ -837,7 +838,7 @@ class bingx extends Exchange {
             //                  array(
             //                    "symbol" => "GEAR-USDT",
             //                    "minQty" => 735, // deprecated
-            //                    "maxQty" => 2941177, // deprecated
+            //                    "maxQty" => 2941177, // deprecated.
             //                    "minNotional" => 5,
             //                    "maxNotional" => 20000,
             //                    "status" => 1,
@@ -2496,7 +2497,7 @@ class bingx extends Exchange {
         }) ();
     }
 
-    public function fetch_positions(?array $symbols = null, $params = array ()) {
+    public function fetch_positions(?array $symbols = null, $params = array ()): PromiseInterface {
         return Async\async(function () use ($symbols, $params) {
             /**
              * fetch all open $positions

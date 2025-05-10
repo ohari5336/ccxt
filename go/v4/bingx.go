@@ -161,7 +161,6 @@ func  (this *bingx) Describe() interface{}  {
                             "trade/myTrades": 2,
                             "user/commissionRate": 5,
                             "account/balance": 2,
-                            "account/allAccountBalance": 2,
                         },
                         "post": map[string]interface{} {
                             "trade/order": 2,
@@ -388,6 +387,7 @@ func  (this *bingx) Describe() interface{}  {
                             "uid": 1,
                             "apiKey/query": 2,
                             "account/apiPermissions": 5,
+                            "allAccountBalance": 2,
                         },
                         "post": map[string]interface{} {
                             "innerTransfer/authorizeSubAccount": 1,
@@ -732,7 +732,7 @@ func  (this *bingx) FetchCurrencies(optionalArgs ...interface{}) <- chan interfa
             //
             //    {
             //      "code": 0,
-            //      "timestamp": 1702623271477,
+            //      "timestamp": 1702623271476,
             //      "data": [
             //        {
             //          "coin": "BTC",
@@ -818,7 +818,7 @@ func  (this *bingx) FetchCurrencies(optionalArgs ...interface{}) <- chan interfa
         })
                 }
                 var active interface{} = IsTrue(depositEnabled) || IsTrue(withdrawEnabled)
-                AddElementToObject(result, code, map[string]interface{} {
+                AddElementToObject(result, code, this.SafeCurrencyStructure(map[string]interface{} {
             "info": entry,
             "code": code,
             "id": currencyId,
@@ -830,7 +830,7 @@ func  (this *bingx) FetchCurrencies(optionalArgs ...interface{}) <- chan interfa
             "networks": networks,
             "fee": fee,
             "limits": defaultLimits,
-        })
+        }))
             }
         
             ch <- result
@@ -857,7 +857,7 @@ func  (this *bingx) FetchSpotMarkets(params interface{}) <- chan interface{} {
             //                  {
             //                    "symbol": "GEAR-USDT",
             //                    "minQty": 735, // deprecated
-            //                    "maxQty": 2941177, // deprecated
+            //                    "maxQty": 2941177, // deprecated.
             //                    "minNotional": 5,
             //                    "maxNotional": 20000,
             //                    "status": 1,

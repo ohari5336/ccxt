@@ -320,6 +320,7 @@ class cex extends cex$1 {
                 'margin': undefined,
                 'deposit': deposit,
                 'withdraw': withdraw,
+                'active': undefined,
                 'fee': this.safeNumber(rawNetwork, 'withdrawalFee'),
                 'precision': currencyPrecision,
                 'limits': {
@@ -549,7 +550,7 @@ class cex extends cex$1 {
             'askVolume': undefined,
             'vwap': undefined,
             'open': undefined,
-            'close': this.safeString(ticker, 'lastTradePrice'),
+            'close': this.safeString(ticker, 'last'),
             'previousClose': undefined,
             'change': this.safeNumber(ticker, 'priceChange'),
             'percentage': this.safeNumber(ticker, 'priceChangePercentage'),

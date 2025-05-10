@@ -163,7 +163,6 @@ export default class bingx extends Exchange {
                                 'trade/myTrades': 2,
                                 'user/commissionRate': 5,
                                 'account/balance': 2,
-                                'account/allAccountBalance': 2,
                             },
                             'post': {
                                 'trade/order': 2,
@@ -390,6 +389,7 @@ export default class bingx extends Exchange {
                                 'uid': 1,
                                 'apiKey/query': 2,
                                 'account/apiPermissions': 5,
+                                'allAccountBalance': 2,
                             },
                             'post': {
                                 'innerTransfer/authorizeSubAccount': 1,
@@ -712,7 +712,7 @@ export default class bingx extends Exchange {
         //
         //    {
         //      "code": 0,
-        //      "timestamp": 1702623271477,
+        //      "timestamp": 1702623271476,
         //      "data": [
         //        {
         //          "coin": "BTC",
@@ -798,7 +798,7 @@ export default class bingx extends Exchange {
                 };
             }
             const active = depositEnabled || withdrawEnabled;
-            result[code] = {
+            result[code] = this.safeCurrencyStructure({
                 'info': entry,
                 'code': code,
                 'id': currencyId,
@@ -810,7 +810,7 @@ export default class bingx extends Exchange {
                 'networks': networks,
                 'fee': fee,
                 'limits': defaultLimits,
-            };
+            });
         }
         return result;
     }
@@ -826,7 +826,7 @@ export default class bingx extends Exchange {
         //                  {
         //                    "symbol": "GEAR-USDT",
         //                    "minQty": 735, // deprecated
-        //                    "maxQty": 2941177, // deprecated
+        //                    "maxQty": 2941177, // deprecated.
         //                    "minNotional": 5,
         //                    "maxNotional": 20000,
         //                    "status": 1,

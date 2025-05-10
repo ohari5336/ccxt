@@ -160,7 +160,6 @@ class bingx extends bingx$1 {
                                 'trade/myTrades': 2,
                                 'user/commissionRate': 5,
                                 'account/balance': 2,
-                                'account/allAccountBalance': 2,
                             },
                             'post': {
                                 'trade/order': 2,
@@ -387,6 +386,7 @@ class bingx extends bingx$1 {
                                 'uid': 1,
                                 'apiKey/query': 2,
                                 'account/apiPermissions': 5,
+                                'allAccountBalance': 2,
                             },
                             'post': {
                                 'innerTransfer/authorizeSubAccount': 1,
@@ -709,7 +709,7 @@ class bingx extends bingx$1 {
         //
         //    {
         //      "code": 0,
-        //      "timestamp": 1702623271477,
+        //      "timestamp": 1702623271476,
         //      "data": [
         //        {
         //          "coin": "BTC",
@@ -795,7 +795,7 @@ class bingx extends bingx$1 {
                 };
             }
             const active = depositEnabled || withdrawEnabled;
-            result[code] = {
+            result[code] = this.safeCurrencyStructure({
                 'info': entry,
                 'code': code,
                 'id': currencyId,
@@ -807,7 +807,7 @@ class bingx extends bingx$1 {
                 'networks': networks,
                 'fee': fee,
                 'limits': defaultLimits,
-            };
+            });
         }
         return result;
     }
@@ -823,7 +823,7 @@ class bingx extends bingx$1 {
         //                  {
         //                    "symbol": "GEAR-USDT",
         //                    "minQty": 735, // deprecated
-        //                    "maxQty": 2941177, // deprecated
+        //                    "maxQty": 2941177, // deprecated.
         //                    "minNotional": 5,
         //                    "maxNotional": 20000,
         //                    "status": 1,

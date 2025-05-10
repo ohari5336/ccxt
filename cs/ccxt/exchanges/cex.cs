@@ -312,6 +312,7 @@ public partial class cex : Exchange
                 { "margin", null },
                 { "deposit", deposit },
                 { "withdraw", withdraw },
+                { "active", null },
                 { "fee", this.safeNumber(rawNetwork, "withdrawalFee") },
                 { "precision", currencyPrecision },
                 { "limits", new Dictionary<string, object>() {
@@ -557,7 +558,7 @@ public partial class cex : Exchange
             { "askVolume", null },
             { "vwap", null },
             { "open", null },
-            { "close", this.safeString(ticker, "lastTradePrice") },
+            { "close", this.safeString(ticker, "last") },
             { "previousClose", null },
             { "change", this.safeNumber(ticker, "priceChange") },
             { "percentage", this.safeNumber(ticker, "priceChangePercentage") },
