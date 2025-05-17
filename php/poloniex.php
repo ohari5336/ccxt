@@ -410,6 +410,7 @@ class poloniex extends Exchange {
                         'untilDays' => null,
                         'trigger' => false,
                         'trailing' => false,
+                        'symbolRequired' => false,
                     ),
                     'fetchMyTrades' => array(
                         'limit' => 100,
@@ -1212,6 +1213,7 @@ class poloniex extends Exchange {
                     'withdraw' => $withdrawEnabled,
                     'fee' => $this->parse_number($feeString),
                     'precision' => null,
+                    'type' => 'crypto',
                     'limits' => array(
                         'amount' => array(
                             'min' => null,
@@ -1868,7 +1870,7 @@ class poloniex extends Exchange {
         $isTrigger = $this->safe_value_2($params, 'trigger', 'stop');
         $params = $this->omit($params, array( 'trigger', 'stop' ));
         $response = null;
-        if (!$market['spot']) {
+        if ($marketType !== 'spot') {
             $raw = $this->swapPrivateGetV3TradeOrderOpens ($this->extend($request, $params));
             //
             //    {
@@ -2670,7 +2672,7 @@ class poloniex extends Exchange {
         );
     }
 
-    public function create_deposit_address(string $code, $params = array ()) {
+    public function create_deposit_address(string $code, $params = array ()): array {
         /**
          * create a $currency deposit $address
          *
@@ -3427,7 +3429,7 @@ class poloniex extends Exchange {
         return $response;
     }
 
-    public function fetch_positions(?array $symbols = null, $params = array ()) {
+    public function fetch_positions(?array $symbols = null, $params = array ()): array {
         /**
          * fetch all open $positions
          *

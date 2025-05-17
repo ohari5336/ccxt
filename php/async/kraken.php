@@ -873,12 +873,14 @@ class kraken extends Exchange {
                 $precision = $this->parse_number($this->parse_precision($this->safe_string($currency, 'decimals')));
                 // assumes all $currencies are $active except those listed above
                 $active = $this->safe_string($currency, 'status') === 'enabled';
+                $isFiat = mb_strpos($code, '.HOLD') !== false;
                 $result[$code] = array(
                     'id' => $id,
                     'code' => $code,
                     'info' => $currency,
                     'name' => $this->safe_string($currency, 'altname'),
                     'active' => $active,
+                    'type' => $isFiat ? 'fiat' : 'crypto',
                     'deposit' => null,
                     'withdraw' => null,
                     'fee' => null,
@@ -1702,6 +1704,8 @@ class kraken extends Exchange {
                 'volume' => $this->amount_to_precision($symbol, $amount),
             );
             $orderRequest = $this->order_request('createOrder', $symbol, $type, $request, $amount, $price, $params);
+            $flags = $this->safe_string($orderRequest[0], 'oflags', '');
+            $isUsingCost = mb_strpos($flags, 'viqc') > -1;
             $response = Async\await($this->privatePostAddOrder ($this->extend($orderRequest[0], $orderRequest[1])));
             //
             //     {
@@ -1713,6 +1717,10 @@ class kraken extends Exchange {
             //     }
             //
             $result = $this->safe_dict($response, 'result');
+            $result['usingCost'] = $isUsingCost;
+            // it's impossible to know if the order was created using cost or base currency
+            // becuase kraken only returns something like this => array( order => 'buy 10.00000000 LTCUSD @ market' )
+            // this usingCost flag is used to help the parsing but omited from the order
             return $this->parse_order($result);
         }) ();
     }
@@ -1892,6 +1900,8 @@ class kraken extends Exchange {
         //         "oflags" => "fciq"
         //     }
         //
+        $isUsingCost = $this->safe_bool($order, 'usingCost', false);
+        $order = $this->omit($order, 'usingCost');
         $description = $this->safe_dict($order, 'descr', array());
         $orderDescriptionObj = $this->safe_dict($order, 'descr'); // can be null
         $orderDescription = null;
@@ -1905,11 +1915,16 @@ class kraken extends Exchange {
         $marketId = null;
         $price = null;
         $amount = null;
+        $cost = null;
         $triggerPrice = null;
         if ($orderDescription !== null) {
             $parts = explode(' ', $orderDescription);
             $side = $this->safe_string($parts, 0);
-            $amount = $this->safe_string($parts, 1);
+            if (!$isUsingCost) {
+                $amount = $this->safe_string($parts, 1);
+            } else {
+                $cost = $this->safe_string($parts, 1);
+            }
             $marketId = $this->safe_string($parts, 2);
             $part4 = $this->safe_string($parts, 4);
             $part5 = $this->safe_string($parts, 5);
@@ -2036,7 +2051,7 @@ class kraken extends Exchange {
             'triggerPrice' => $triggerPrice,
             'takeProfitPrice' => $takeProfitPrice,
             'stopLossPrice' => $stopLossPrice,
-            'cost' => null,
+            'cost' => $cost,
             'amount' => $amount,
             'filled' => $filled,
             'average' => $average,
@@ -3135,7 +3150,7 @@ class kraken extends Exchange {
         return $data;
     }
 
-    public function create_deposit_address(string $code, $params = array ()) {
+    public function create_deposit_address(string $code, $params = array ()): PromiseInterface {
         return Async\async(function () use ($code, $params) {
             /**
              * create a currency deposit address
@@ -3323,7 +3338,7 @@ class kraken extends Exchange {
         }) ();
     }
 
-    public function fetch_positions(?array $symbols = null, $params = array ()) {
+    public function fetch_positions(?array $symbols = null, $params = array ()): PromiseInterface {
         return Async\async(function () use ($symbols, $params) {
             /**
              * fetch all open positions

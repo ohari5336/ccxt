@@ -6,7 +6,7 @@
 from ccxt.async_support.base.exchange import Exchange
 from ccxt.abstract.kraken import ImplicitAPI
 import hashlib
-from ccxt.base.types import Any, Balances, Currencies, Currency, DepositAddress, IndexType, Int, LedgerEntry, Market, Num, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, Trade, TradingFeeInterface, Transaction, TransferEntry
+from ccxt.base.types import Any, Balances, Currencies, Currency, DepositAddress, IndexType, Int, LedgerEntry, Market, Num, Order, OrderBook, OrderSide, OrderType, Position, Str, Strings, Ticker, Tickers, Trade, TradingFeeInterface, Transaction, TransferEntry
 from typing import List
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import AuthenticationError
@@ -864,12 +864,14 @@ class kraken(Exchange, ImplicitAPI):
             precision = self.parse_number(self.parse_precision(self.safe_string(currency, 'decimals')))
             # assumes all currencies are active except those listed above
             active = self.safe_string(currency, 'status') == 'enabled'
+            isFiat = code.find('.HOLD') >= 0
             result[code] = {
                 'id': id,
                 'code': code,
                 'info': currency,
                 'name': self.safe_string(currency, 'altname'),
                 'active': active,
+                'type': 'fiat' if isFiat else 'crypto',
                 'deposit': None,
                 'withdraw': None,
                 'fee': None,
@@ -1614,6 +1616,8 @@ class kraken(Exchange, ImplicitAPI):
             'volume': self.amount_to_precision(symbol, amount),
         }
         orderRequest = self.order_request('createOrder', symbol, type, request, amount, price, params)
+        flags = self.safe_string(orderRequest[0], 'oflags', '')
+        isUsingCost = flags.find('viqc') > -1
         response = await self.privatePostAddOrder(self.extend(orderRequest[0], orderRequest[1]))
         #
         #     {
@@ -1625,6 +1629,10 @@ class kraken(Exchange, ImplicitAPI):
         #     }
         #
         result = self.safe_dict(response, 'result')
+        result['usingCost'] = isUsingCost
+        # it's impossible to know if the order was created using cost or base currency
+        # becuase kraken only returns something like self: {order: 'buy 10.00000000 LTCUSD @ market'}
+        # self usingCost flag is used to help the parsing but omited from the order
         return self.parse_order(result)
 
     def find_market_by_altname_or_id(self, id):
@@ -1794,6 +1802,8 @@ class kraken(Exchange, ImplicitAPI):
         #         "oflags": "fciq"
         #     }
         #
+        isUsingCost = self.safe_bool(order, 'usingCost', False)
+        order = self.omit(order, 'usingCost')
         description = self.safe_dict(order, 'descr', {})
         orderDescriptionObj = self.safe_dict(order, 'descr')  # can be null
         orderDescription = None
@@ -1806,11 +1816,15 @@ class kraken(Exchange, ImplicitAPI):
         marketId = None
         price = None
         amount = None
+        cost = None
         triggerPrice = None
         if orderDescription is not None:
             parts = orderDescription.split(' ')
             side = self.safe_string(parts, 0)
-            amount = self.safe_string(parts, 1)
+            if not isUsingCost:
+                amount = self.safe_string(parts, 1)
+            else:
+                cost = self.safe_string(parts, 1)
             marketId = self.safe_string(parts, 2)
             part4 = self.safe_string(parts, 4)
             part5 = self.safe_string(parts, 5)
@@ -1920,7 +1934,7 @@ class kraken(Exchange, ImplicitAPI):
             'triggerPrice': triggerPrice,
             'takeProfitPrice': takeProfitPrice,
             'stopLossPrice': stopLossPrice,
-            'cost': None,
+            'cost': cost,
             'amount': amount,
             'filled': filled,
             'average': average,
@@ -2900,7 +2914,7 @@ class kraken(Exchange, ImplicitAPI):
             data[dataLength - 1] = last
         return data
 
-    async def create_deposit_address(self, code: str, params={}):
+    async def create_deposit_address(self, code: str, params={}) -> DepositAddress:
         """
         create a currency deposit address
 
@@ -3067,7 +3081,7 @@ class kraken(Exchange, ImplicitAPI):
             return self.parse_transaction(result, currency)
         raise ExchangeError(self.id + " withdraw() requires a 'key' parameter(withdrawal key name, up on your account)")
 
-    async def fetch_positions(self, symbols: Strings = None, params={}):
+    async def fetch_positions(self, symbols: Strings = None, params={}) -> List[Position]:
         """
         fetch all open positions
 
