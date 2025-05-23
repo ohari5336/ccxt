@@ -6,7 +6,7 @@ import { ExchangeNotAvailable, ExchangeError, DDoSProtection, BadSymbol, Invalid
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
 import { sha512 } from './static_dependencies/noble-hashes/sha512.js';
-import type { TransferEntry, Balances, Bool, Currency, Int, Market, MarketType, OHLCV, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, Trade, Transaction, Num, Currencies, TradingFees, Dict, int, FundingRate, FundingRates, DepositAddress, Conversion, BorrowInterest, FundingHistory, Position } from './base/types.js';
+import type { TransferEntry, Balances, Bool, Currency, Int, Market, MarketType, OHLCV, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, Trade, Transaction, Num, Currencies, TradingFees, Dict, int, FundingRate, FundingRates, DepositAddress, Conversion, BorrowInterest, FundingHistory, Position, CrossBorrowRate } from './base/types.js';
 
 //  ---------------------------------------------------------------------------
 
@@ -35,13 +35,16 @@ export default class whitebit extends Exchange {
                 'cancelOrder': true,
                 'cancelOrders': false,
                 'createConvertTrade': true,
+                'createDepositAddress': true,
                 'createMarketBuyOrderWithCost': true,
                 'createMarketOrderWithCost': false,
                 'createMarketSellOrderWithCost': false,
                 'createOrder': true,
+                'createPostOnlyOrder': true,
                 'createStopLimitOrder': true,
                 'createStopMarketOrder': true,
                 'createStopOrder': true,
+                'createTriggerOrder': true,
                 'editOrder': false,
                 'fetchBalance': true,
                 'fetchBorrowRateHistories': false,
@@ -50,7 +53,7 @@ export default class whitebit extends Exchange {
                 'fetchConvertQuote': true,
                 'fetchConvertTrade': false,
                 'fetchConvertTradeHistory': true,
-                'fetchCrossBorrowRate': false,
+                'fetchCrossBorrowRate': true,
                 'fetchCrossBorrowRates': false,
                 'fetchCurrencies': true,
                 'fetchDeposit': true,
@@ -545,18 +548,69 @@ export default class whitebit extends Exchange {
     async fetchCurrencies (params = {}): Promise<Currencies> {
         const response = await this.v4PublicGetAssets (params);
         //
-        //      "BTC": {
-        //          "name": "Bitcoin",
-        //          "unified_cryptoasset_id": 1,
-        //          "can_withdraw": true,
-        //          "can_deposit": true,
-        //          "min_withdraw": "0.001",
-        //          "max_withdraw": "2",
-        //          "maker_fee": "0.1",
-        //          "taker_fee": "0.1",
-        //          "min_deposit": "0.0001",
-        //           "max_deposit": "0",
-        //       },
+        // {
+        //   BTC: {
+        //     name: "Bitcoin",
+        //     unified_cryptoasset_id: "1",
+        //     can_withdraw: true,
+        //     can_deposit: true,
+        //     min_withdraw: "0.0003",
+        //     max_withdraw: "0",
+        //     maker_fee: "0.1",
+        //     taker_fee: "0.1",
+        //     min_deposit: "0.0001",
+        //     max_deposit: "0",
+        //     networks: {
+        //         deposits: [ "BTC", ],
+        //         withdraws: [ "BTC", ],
+        //         default: "BTC",
+        //     },
+        //     confirmations: {
+        //         BTC: "2",
+        //     },
+        //     limits: {
+        //         deposit: {
+        //            BTC: { min: "0.0001", },
+        //         },
+        //         withdraw: {
+        //            BTC: { min: "0.0003", },
+        //         },
+        //     },
+        //     currency_precision: "8",
+        //     is_memo: false,
+        //   },
+        //   USD: {
+        //         name: "United States Dollar",
+        //         unified_cryptoasset_id: "6955",
+        //         can_withdraw: true,
+        //         can_deposit: true,
+        //         min_withdraw: "10",
+        //         max_withdraw: "10000",
+        //         maker_fee: "0.1",
+        //         taker_fee: "0.1",
+        //         min_deposit: "10",
+        //         max_deposit: "10000",
+        //         networks: {
+        //           deposits: [ "USD", ],
+        //           withdraws: [ "USD", ],
+        //           default: "USD",
+        //         },
+        //         providers: {
+        //           deposits: [ "ADVCASH", ],
+        //           withdraws: [ "ADVCASH", ],
+        //         },
+        //         limits: {
+        //           deposit: {
+        //             USD: {  max: "10000", min: "10", },
+        //           },
+        //           withdraw: {
+        //             USD: { max: "10000",  min: "10", },
+        //           },
+        //         },
+        //         currency_precision: "2",
+        //         is_memo: false,
+        //   }
+        // }
         //
         const ids = Object.keys (response);
         const result: Dict = {};
@@ -569,6 +623,7 @@ export default class whitebit extends Exchange {
             const canWithdraw = this.safeBool (currency, 'can_withdraw', true);
             const active = canDeposit && canWithdraw;
             const code = this.safeCurrencyCode (id);
+            const hasProvider = ('providers' in currency);
             result[code] = {
                 'id': id,
                 'code': code,
@@ -578,6 +633,8 @@ export default class whitebit extends Exchange {
                 'deposit': canDeposit,
                 'withdraw': canWithdraw,
                 'fee': undefined,
+                'networks': undefined, // todo
+                'type': hasProvider ? 'fiat' : 'crypto',
                 'precision': undefined,
                 'limits': {
                     'amount': {
@@ -1410,6 +1467,10 @@ export default class whitebit extends Exchange {
      * @param {float} [price] the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
      * @param {object} [params] extra parameters specific to the exchange API endpoint
      * @param {float} [params.cost] *market orders only* the cost of the order in units of the base currency
+     * @param {float} [params.triggerPrice] The price at which a trigger order is triggered at
+     * @param {bool} [params.postOnly] If true, the order will only be posted to the order book and not executed immediately
+     * @param {string} [params.clientOrderId] a unique id for the order
+     * @param {string} [params.marginMode] 'cross' or 'isolated', for margin trading, uses this.options.defaultMarginMode if not passed, defaults to undefined/None/null
      * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
      */
     async createOrder (symbol: string, type: OrderType, side: OrderSide, amount: number, price: Num = undefined, params = {}) {
@@ -2093,6 +2154,62 @@ export default class whitebit extends Exchange {
             'network': undefined,
             'address': address,
             'tag': tag,
+        } as DepositAddress;
+    }
+
+    /**
+     * @method
+     * @name whitebit#createDepositAddress
+     * @description create a currency deposit address
+     * @see https://docs.whitebit.com/private/http-main-v4/#create-new-address-for-deposit
+     * @param {string} code unified currency code of the currency for the deposit address
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.network] the blockchain network to create a deposit address on
+     * @param {string} [params.type] address type, available for specific currencies
+     * @returns {object} an [address structure]{@link https://docs.ccxt.com/#/?id=address-structure}
+     */
+    async createDepositAddress (code: string, params = {}): Promise<DepositAddress> {
+        await this.loadMarkets ();
+        const currency = this.currency (code);
+        const request: Dict = {
+            'ticker': currency['id'],
+        };
+        const response = await this.v4PrivatePostMainAccountCreateNewAddress (this.extend (request, params));
+        //
+        //     {
+        //         "account": {
+        //             "address": "GDTSOI56XNVAKJNJBLJGRNZIVOCIZJRBIDKTWSCYEYNFAZEMBLN75RMN",
+        //             "memo": "48565488244493"
+        //         },
+        //         "required": {
+        //             "maxAmount": "0",
+        //             "minAmount": "1",
+        //             "fixedFee": "0",
+        //             "flexFee": {
+        //                 "maxFee": "0",
+        //                 "minFee": "0",
+        //                 "percent": "0"
+        //             }
+        //         }
+        //     }
+        //
+        const data = this.safeDict (response, 'account', {});
+        return this.parseDepositAddress (data, currency);
+    }
+
+    parseDepositAddress (depositAddress, currency: Currency = undefined): DepositAddress {
+        //
+        //     {
+        //         "address": "GDTSOI56XNVAKJNJBLJGRNZIVOCIZJRBIDKTWSCYEYNFAZEMBLN75RMN",
+        //         "memo": "48565488244493"
+        //     },
+        //
+        return {
+            'info': depositAddress,
+            'currency': this.safeCurrencyCode (undefined, currency),
+            'network': undefined,
+            'address': this.safeString (depositAddress, 'address'),
+            'tag': this.safeString (depositAddress, 'memo'),
         } as DepositAddress;
     }
 
@@ -3208,6 +3325,43 @@ export default class whitebit extends Exchange {
             'stopLossPrice': this.safeNumber (tpsl, 'stopLoss'),
             'takeProfitPrice': this.safeNumber (tpsl, 'takeProfit'),
         }) as Position;
+    }
+
+    /**
+     * @method
+     * @name whitebit#fetchCrossBorrowRate
+     * @description fetch the rate of interest to borrow a currency for margin trading
+     * @see https://docs.whitebit.com/private/http-main-v4/#get-plans
+     * @param {string} code unified currency code
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [borrow rate structure]{@link https://docs.ccxt.com/#/?id=borrow-rate-structure}
+     */
+    async fetchCrossBorrowRate (code: string, params = {}): Promise<CrossBorrowRate> {
+        await this.loadMarkets ();
+        const currency = this.currency (code);
+        const request: Dict = {
+            'ticker': currency['id'],
+        };
+        const response = await this.v4PrivatePostMainAccountSmartPlans (this.extend (request, params));
+        //
+        //
+        const data = this.safeList (response, 0, []);
+        return this.parseBorrowRate (data, currency);
+    }
+
+    parseBorrowRate (info, currency: Currency = undefined) {
+        //
+        //
+        const currencyId = this.safeString (info, 'ticker');
+        const percent = this.safeString (info, 'percent');
+        return {
+            'currency': this.safeCurrencyCode (currencyId, currency),
+            'rate': this.parseNumber (Precise.stringDiv (percent, '100')),
+            'period': this.safeInteger (info, 'duration'),
+            'timestamp': undefined,
+            'datetime': undefined,
+            'info': info,
+        };
     }
 
     isFiat (currency: string): boolean {

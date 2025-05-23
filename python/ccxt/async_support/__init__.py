@@ -4,7 +4,7 @@
 
 # -----------------------------------------------------------------------------
 
-__version__ = '4.4.70'
+__version__ = '4.4.85'
 
 # -----------------------------------------------------------------------------
 
@@ -63,8 +63,8 @@ from ccxt.base.errors import UnsubscribeError                         # noqa: F4
 from ccxt.base.errors import error_hierarchy                          # noqa: F401
 
 
-from ccxt.async_support.ace import ace                                          # noqa: F401
 from ccxt.async_support.alpaca import alpaca                                    # noqa: F401
+from ccxt.async_support.apex import apex                                        # noqa: F401
 from ccxt.async_support.ascendex import ascendex                                # noqa: F401
 from ccxt.async_support.bequant import bequant                                  # noqa: F401
 from ccxt.async_support.bigone import bigone                                    # noqa: F401
@@ -76,22 +76,18 @@ from ccxt.async_support.bingx import bingx                                      
 from ccxt.async_support.bit2c import bit2c                                      # noqa: F401
 from ccxt.async_support.bitbank import bitbank                                  # noqa: F401
 from ccxt.async_support.bitbns import bitbns                                    # noqa: F401
-from ccxt.async_support.bitcoincom import bitcoincom                            # noqa: F401
 from ccxt.async_support.bitfinex import bitfinex                                # noqa: F401
-from ccxt.async_support.bitfinex1 import bitfinex1                              # noqa: F401
 from ccxt.async_support.bitflyer import bitflyer                                # noqa: F401
 from ccxt.async_support.bitget import bitget                                    # noqa: F401
 from ccxt.async_support.bithumb import bithumb                                  # noqa: F401
 from ccxt.async_support.bitmart import bitmart                                  # noqa: F401
 from ccxt.async_support.bitmex import bitmex                                    # noqa: F401
 from ccxt.async_support.bitopro import bitopro                                  # noqa: F401
-from ccxt.async_support.bitpanda import bitpanda                                # noqa: F401
 from ccxt.async_support.bitrue import bitrue                                    # noqa: F401
 from ccxt.async_support.bitso import bitso                                      # noqa: F401
 from ccxt.async_support.bitstamp import bitstamp                                # noqa: F401
 from ccxt.async_support.bitteam import bitteam                                  # noqa: F401
 from ccxt.async_support.bitvavo import bitvavo                                  # noqa: F401
-from ccxt.async_support.bl3p import bl3p                                        # noqa: F401
 from ccxt.async_support.blockchaincom import blockchaincom                      # noqa: F401
 from ccxt.async_support.blofin import blofin                                    # noqa: F401
 from ccxt.async_support.btcalpha import btcalpha                                # noqa: F401
@@ -133,7 +129,6 @@ from ccxt.async_support.htx import htx                                          
 from ccxt.async_support.huobi import huobi                                      # noqa: F401
 from ccxt.async_support.huobijp import huobijp                                  # noqa: F401
 from ccxt.async_support.hyperliquid import hyperliquid                          # noqa: F401
-from ccxt.async_support.idex import idex                                        # noqa: F401
 from ccxt.async_support.independentreserve import independentreserve            # noqa: F401
 from ccxt.async_support.indodax import indodax                                  # noqa: F401
 from ccxt.async_support.kraken import kraken                                    # noqa: F401
@@ -175,8 +170,8 @@ from ccxt.async_support.zaif import zaif                                        
 from ccxt.async_support.zonda import zonda                                      # noqa: F401
 
 exchanges = [
-    'ace',
     'alpaca',
+    'apex',
     'ascendex',
     'bequant',
     'bigone',
@@ -188,22 +183,18 @@ exchanges = [
     'bit2c',
     'bitbank',
     'bitbns',
-    'bitcoincom',
     'bitfinex',
-    'bitfinex1',
     'bitflyer',
     'bitget',
     'bithumb',
     'bitmart',
     'bitmex',
     'bitopro',
-    'bitpanda',
     'bitrue',
     'bitso',
     'bitstamp',
     'bitteam',
     'bitvavo',
-    'bl3p',
     'blockchaincom',
     'blofin',
     'btcalpha',
@@ -245,7 +236,6 @@ exchanges = [
     'huobi',
     'huobijp',
     'hyperliquid',
-    'idex',
     'independentreserve',
     'indodax',
     'kraken',

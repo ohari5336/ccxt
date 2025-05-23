@@ -413,6 +413,7 @@ class poloniex extends poloniex$1 {
                         'untilDays': undefined,
                         'trigger': false,
                         'trailing': false,
+                        'symbolRequired': false,
                     },
                     'fetchMyTrades': {
                         'limit': 100,
@@ -1203,6 +1204,7 @@ class poloniex extends poloniex$1 {
                     'withdraw': withdrawEnabled,
                     'fee': this.parseNumber(feeString),
                     'precision': undefined,
+                    'type': 'crypto',
                     'limits': {
                         'amount': {
                             'min': undefined,
@@ -1851,7 +1853,7 @@ class poloniex extends poloniex$1 {
         const isTrigger = this.safeValue2(params, 'trigger', 'stop');
         params = this.omit(params, ['trigger', 'stop']);
         let response = undefined;
-        if (!market['spot']) {
+        if (marketType !== 'spot') {
             const raw = await this.swapPrivateGetV3TradeOrderOpens(this.extend(request, params));
             //
             //    {

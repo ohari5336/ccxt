@@ -22,7 +22,7 @@
 
 # ----------------------------------------------------------------------------
 
-__version__ = '4.4.70'
+__version__ = '4.4.85'
 
 # ----------------------------------------------------------------------------
 
@@ -83,8 +83,8 @@ from ccxt.base.errors import CancelPending                            # noqa: F4
 from ccxt.base.errors import UnsubscribeError                         # noqa: F401
 from ccxt.base.errors import error_hierarchy                          # noqa: F401
 
-from ccxt.ace import ace                                              # noqa: F401
 from ccxt.alpaca import alpaca                                        # noqa: F401
+from ccxt.apex import apex                                            # noqa: F401
 from ccxt.ascendex import ascendex                                    # noqa: F401
 from ccxt.bequant import bequant                                      # noqa: F401
 from ccxt.bigone import bigone                                        # noqa: F401
@@ -96,22 +96,18 @@ from ccxt.bingx import bingx                                          # noqa: F4
 from ccxt.bit2c import bit2c                                          # noqa: F401
 from ccxt.bitbank import bitbank                                      # noqa: F401
 from ccxt.bitbns import bitbns                                        # noqa: F401
-from ccxt.bitcoincom import bitcoincom                                # noqa: F401
 from ccxt.bitfinex import bitfinex                                    # noqa: F401
-from ccxt.bitfinex1 import bitfinex1                                  # noqa: F401
 from ccxt.bitflyer import bitflyer                                    # noqa: F401
 from ccxt.bitget import bitget                                        # noqa: F401
 from ccxt.bithumb import bithumb                                      # noqa: F401
 from ccxt.bitmart import bitmart                                      # noqa: F401
 from ccxt.bitmex import bitmex                                        # noqa: F401
 from ccxt.bitopro import bitopro                                      # noqa: F401
-from ccxt.bitpanda import bitpanda                                    # noqa: F401
 from ccxt.bitrue import bitrue                                        # noqa: F401
 from ccxt.bitso import bitso                                          # noqa: F401
 from ccxt.bitstamp import bitstamp                                    # noqa: F401
 from ccxt.bitteam import bitteam                                      # noqa: F401
 from ccxt.bitvavo import bitvavo                                      # noqa: F401
-from ccxt.bl3p import bl3p                                            # noqa: F401
 from ccxt.blockchaincom import blockchaincom                          # noqa: F401
 from ccxt.blofin import blofin                                        # noqa: F401
 from ccxt.btcalpha import btcalpha                                    # noqa: F401
@@ -153,7 +149,6 @@ from ccxt.htx import htx                                              # noqa: F4
 from ccxt.huobi import huobi                                          # noqa: F401
 from ccxt.huobijp import huobijp                                      # noqa: F401
 from ccxt.hyperliquid import hyperliquid                              # noqa: F401
-from ccxt.idex import idex                                            # noqa: F401
 from ccxt.independentreserve import independentreserve                # noqa: F401
 from ccxt.indodax import indodax                                      # noqa: F401
 from ccxt.kraken import kraken                                        # noqa: F401
@@ -195,8 +190,8 @@ from ccxt.zaif import zaif                                            # noqa: F4
 from ccxt.zonda import zonda                                          # noqa: F401
 
 exchanges = [
-    'ace',
     'alpaca',
+    'apex',
     'ascendex',
     'bequant',
     'bigone',
@@ -208,22 +203,18 @@ exchanges = [
     'bit2c',
     'bitbank',
     'bitbns',
-    'bitcoincom',
     'bitfinex',
-    'bitfinex1',
     'bitflyer',
     'bitget',
     'bithumb',
     'bitmart',
     'bitmex',
     'bitopro',
-    'bitpanda',
     'bitrue',
     'bitso',
     'bitstamp',
     'bitteam',
     'bitvavo',
-    'bl3p',
     'blockchaincom',
     'blofin',
     'btcalpha',
@@ -265,7 +256,6 @@ exchanges = [
     'huobi',
     'huobijp',
     'hyperliquid',
-    'idex',
     'independentreserve',
     'indodax',
     'kraken',

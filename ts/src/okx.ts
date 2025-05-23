@@ -365,6 +365,7 @@ export default class okx extends Exchange {
                         'account/spot-manual-borrow-repay': 10,
                         'account/set-auto-repay': 4,
                         'account/spot-borrow-repay-history': 4,
+                        'account/move-positions-history': 10,
                         // subaccount
                         'users/subaccount/list': 10,
                         'account/subaccount/balances': 10 / 3,
@@ -374,6 +375,7 @@ export default class okx extends Exchange {
                         'asset/subaccount/managed-subaccount-bills': 5 / 3,
                         'users/entrust-subaccount-list': 10,
                         'account/subaccount/interest-limits': 4,
+                        'users/subaccount/apikey': 10,
                         // grid trading
                         'tradingBot/grid/orders-algo-pending': 1,
                         'tradingBot/grid/orders-algo-history': 1,
@@ -501,11 +503,15 @@ export default class okx extends Exchange {
                         'account/fixed-loan/manual-reborrow': 5,
                         'account/fixed-loan/repay-borrowing-order': 5,
                         'account/bills-history-archive': 72000, // 12 req/day
+                        'account/move-positions': 10,
                         // subaccount
                         'users/subaccount/modify-apikey': 10,
                         'asset/subaccount/transfer': 10,
                         'users/subaccount/set-transfer-out': 10,
                         'account/subaccount/set-loan-allocation': 4,
+                        'users/subaccount/create-subaccount': 10,
+                        'users/subaccount/subaccount-apikey': 10,
+                        'users/subaccount/delete-apikey': 10,
                         // grid trading
                         'tradingBot/grid/order-algo': 1,
                         'tradingBot/grid/amend-order-algo': 1,
@@ -916,6 +922,11 @@ export default class okx extends Exchange {
                     '59506': ExchangeError, // APIKey does not exist
                     '59507': ExchangeError, // The two accounts involved in a transfer must be two different sub accounts under the same parent account
                     '59508': AccountSuspended, // The sub account of {0} is suspended
+                    '59515': ExchangeError, // You are currently not on the custody whitelist. Please contact customer service for assistance.
+                    '59516': ExchangeError, // Please create the Copper custody funding account first.
+                    '59517': ExchangeError, // Please create the Komainu custody funding account first.
+                    '59518': ExchangeError, // You can’t create a sub-account using the API; please use the app or web.
+                    '59519': ExchangeError, // You can’t use this function/feature while it's frozen, due to: {freezereason}
                     '59642': BadRequest, // Lead and copy traders can only use margin-free or single-currency margin account modes
                     '59643': ExchangeError, // Couldn’t switch account modes as you’re currently copying spot trades
                     // WebSocket error Codes from 60000-63999
@@ -959,6 +970,13 @@ export default class okx extends Exchange {
                     '70010': BadRequest, // Timestamp parameters need to be in Unix timestamp format in milliseconds.
                     '70013': BadRequest, // endTs needs to be bigger than or equal to beginTs.
                     '70016': BadRequest, // Please specify your instrument settings for at least one instType.
+                    '70060': BadRequest, // The account doesn’t exist or the position side is incorrect. To and from accounts must be under the same main account.
+                    '70061': BadRequest, // To move position, please enter a position that’s opposite to your current side and is smaller than or equal to your current size.
+                    '70062': BadRequest, // account has reached the maximum number of position transfers allowed per day.
+                    '70064': BadRequest, // Position does not exist.
+                    '70065': BadRequest, // Couldn’t move position. Execution price cannot be determined
+                    '70066': BadRequest, // Moving positions isn't supported in spot mode. Switch to any other account mode and try again.
+                    '70067': BadRequest, // Moving positions isn't supported in margin trading.
                     '1009': BadRequest,  // Request message exceeds the maximum frame length
                     '4001': AuthenticationError,  // Login Failed
                     '4002': BadRequest,  // Invalid Request
@@ -1270,6 +1288,7 @@ export default class okx extends Exchange {
                     },
                     'fetchOHLCV': {
                         'limit': 300,
+                        'historical': 100,
                     },
                 },
                 'spot': {
@@ -1603,8 +1622,8 @@ export default class okx extends Exchange {
         const swap = (type === 'swap');
         const option = (type === 'option');
         const contract = swap || future || option;
-        let baseId = this.safeString (market, 'baseCcy');
-        let quoteId = this.safeString (market, 'quoteCcy');
+        let baseId = this.safeString (market, 'baseCcy', ''); // defaulting to '' because some weird preopen markets have empty baseId
+        let quoteId = this.safeString (market, 'quoteCcy', '');
         const settleId = this.safeString (market, 'settleCcy');
         const settle = this.safeCurrencyCode (settleId);
         const underlying = this.safeString (market, 'uly');
@@ -1620,20 +1639,26 @@ export default class okx extends Exchange {
         let strikePrice = undefined;
         let optionType = undefined;
         if (contract) {
-            symbol = symbol + ':' + settle;
-            expiry = this.safeInteger (market, 'expTime');
+            if (settle !== undefined) {
+                symbol = symbol + ':' + settle;
+            }
             if (future) {
-                const ymd = this.yymmdd (expiry);
-                symbol = symbol + '-' + ymd;
+                expiry = this.safeInteger (market, 'expTime');
+                if (expiry !== undefined) {
+                    const ymd = this.yymmdd (expiry);
+                    symbol = symbol + '-' + ymd;
+                }
             } else if (option) {
+                expiry = this.safeInteger (market, 'expTime');
                 strikePrice = this.safeString (market, 'stk');
                 optionType = this.safeString (market, 'optType');
-                const ymd = this.yymmdd (expiry);
-                symbol = symbol + '-' + ymd + '-' + strikePrice + '-' + optionType;
-                optionType = (optionType === 'P') ? 'put' : 'call';
+                if (expiry !== undefined) {
+                    const ymd = this.yymmdd (expiry);
+                    symbol = symbol + '-' + ymd + '-' + strikePrice + '-' + optionType;
+                    optionType = (optionType === 'P') ? 'put' : 'call';
+                }
             }
         }
-        const tickSize = this.safeString (market, 'tickSz');
         const fees = this.safeDict2 (this.fees, type, 'trading', {});
         let maxLeverage = this.safeString (market, 'lever', '1');
         maxLeverage = Precise.stringMax (maxLeverage, '1');
@@ -1665,7 +1690,7 @@ export default class okx extends Exchange {
             'created': this.safeInteger (market, 'listTime'),
             'precision': {
                 'amount': this.safeNumber (market, 'lotSz'),
-                'price': this.parseNumber (tickSize),
+                'price': this.safeNumber (market, 'tickSz'),
             },
             'limits': {
                 'leverage': {
@@ -1824,68 +1849,57 @@ export default class okx extends Exchange {
             const code = currency['code'];
             const chains = dataByCurrencyId[currencyId];
             const networks: Dict = {};
-            let currencyActive = false;
-            let depositEnabled = false;
-            let withdrawEnabled = false;
-            let maxPrecision = undefined;
-            for (let j = 0; j < chains.length; j++) {
+            let type = 'crypto';
+            const chainsLength = chains.length;
+            for (let j = 0; j < chainsLength; j++) {
                 const chain = chains[j];
-                const canDeposit = this.safeBool (chain, 'canDep');
-                depositEnabled = (canDeposit) ? canDeposit : depositEnabled;
-                const canWithdraw = this.safeBool (chain, 'canWd');
-                withdrawEnabled = (canWithdraw) ? canWithdraw : withdrawEnabled;
-                const canInternal = this.safeBool (chain, 'canInternal');
-                const active = (canDeposit && canWithdraw && canInternal) ? true : false;
-                currencyActive = (active) ? active : currencyActive;
-                const networkId = this.safeString (chain, 'chain');
-                if ((networkId !== undefined) && (networkId.indexOf ('-') >= 0)) {
-                    const idParts = networkId.split ('-');
-                    const parts = this.arraySlice (idParts, 1);
-                    const chainPart = parts.join ('-');
-                    const networkCode = this.networkIdToCode (chainPart, currency['code']);
-                    const precision = this.parsePrecision (this.safeString (chain, 'wdTickSz'));
-                    if (maxPrecision === undefined) {
-                        maxPrecision = precision;
-                    } else {
-                        maxPrecision = Precise.stringMin (maxPrecision, precision);
-                    }
-                    networks[networkCode] = {
-                        'id': networkId,
-                        'network': networkCode,
-                        'active': active,
-                        'deposit': canDeposit,
-                        'withdraw': canWithdraw,
-                        'fee': this.safeNumber (chain, 'fee'),
-                        'precision': this.parseNumber (precision),
-                        'limits': {
-                            'withdraw': {
-                                'min': this.safeNumber (chain, 'minWd'),
-                                'max': this.safeNumber (chain, 'maxWd'),
-                            },
-                        },
-                        'info': chain,
-                    };
+                // allow empty string for rare fiat-currencies, e.g. TRY
+                const networkId = this.safeString (chain, 'chain', ''); // USDT-BEP20, USDT-Avalance-C, etc
+                if (networkId === '') {
+                    // only happens for fiat 'TRY' currency
+                    type = 'fiat';
                 }
+                const idParts = networkId.split ('-');
+                const parts = this.arraySlice (idParts, 1);
+                const chainPart = parts.join ('-');
+                const networkCode = this.networkIdToCode (chainPart, currency['code']);
+                networks[networkCode] = {
+                    'id': networkId,
+                    'network': networkCode,
+                    'active': undefined,
+                    'deposit': this.safeBool (chain, 'canDep'),
+                    'withdraw': this.safeBool (chain, 'canWd'),
+                    'fee': this.safeNumber (chain, 'fee'),
+                    'precision': this.parseNumber (this.parsePrecision (this.safeString (chain, 'wdTickSz'))),
+                    'limits': {
+                        'withdraw': {
+                            'min': this.safeNumber (chain, 'minWd'),
+                            'max': this.safeNumber (chain, 'maxWd'),
+                        },
+                    },
+                    'info': chain,
+                };
             }
             const firstChain = this.safeDict (chains, 0, {});
-            result[code] = {
+            result[code] = this.safeCurrencyStructure ({
                 'info': chains,
                 'code': code,
                 'id': currencyId,
                 'name': this.safeString (firstChain, 'name'),
-                'active': currencyActive,
-                'deposit': depositEnabled,
-                'withdraw': withdrawEnabled,
+                'active': undefined,
+                'deposit': undefined,
+                'withdraw': undefined,
                 'fee': undefined,
-                'precision': this.parseNumber (maxPrecision),
+                'precision': undefined,
                 'limits': {
                     'amount': {
                         'min': undefined,
                         'max': undefined,
                     },
                 },
+                'type': type,
                 'networks': networks,
-            };
+            });
         }
         return result;
     }
@@ -2427,6 +2441,8 @@ export default class okx extends Exchange {
         const timezone = this.safeString (options, 'timezone', 'UTC');
         if (limit === undefined) {
             limit = 100; // default 100, max 100
+        } else {
+            limit = Math.min (limit, 300); // max 100
         }
         const duration = this.parseTimeframe (timeframe);
         let bar = this.safeString (this.timeframes, timeframe, timeframe);
@@ -2446,6 +2462,7 @@ export default class okx extends Exchange {
             const historyBorder = now - ((1440 - 1) * durationInMilliseconds);
             if (since < historyBorder) {
                 defaultType = 'HistoryCandles';
+                limit = Math.min (limit, 100); // max 100 for historical endpoint
             }
             const startTime = Math.max (since - 1, 0);
             request['before'] = startTime;
@@ -5046,7 +5063,7 @@ export default class okx extends Exchange {
      */
     async fetchDepositAddress (code: string, params = {}): Promise<DepositAddress> {
         await this.loadMarkets ();
-        const rawNetwork = this.safeStringUpper (params, 'network');
+        const rawNetwork = this.safeString (params, 'network'); // some networks are like "Dora Vota Mainnet"
         params = this.omit (params, 'network');
         code = this.safeCurrencyCode (code);
         const network = this.networkIdToCode (rawNetwork, code);
@@ -5663,7 +5680,7 @@ export default class okx extends Exchange {
      * @param {string} [params.instType] MARGIN, SWAP, FUTURES, OPTION
      * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/#/?id=position-structure}
      */
-    async fetchPositions (symbols: Strings = undefined, params = {}) {
+    async fetchPositions (symbols: Strings = undefined, params = {}): Promise<Position[]> {
         await this.loadMarkets ();
         const request: Dict = {
             // 'instType': 'MARGIN', // optional string, MARGIN, SWAP, FUTURES, OPTION

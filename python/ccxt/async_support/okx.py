@@ -389,6 +389,7 @@ class okx(Exchange, ImplicitAPI):
                         'account/spot-manual-borrow-repay': 10,
                         'account/set-auto-repay': 4,
                         'account/spot-borrow-repay-history': 4,
+                        'account/move-positions-history': 10,
                         # subaccount
                         'users/subaccount/list': 10,
                         'account/subaccount/balances': 10 / 3,
@@ -398,6 +399,7 @@ class okx(Exchange, ImplicitAPI):
                         'asset/subaccount/managed-subaccount-bills': 5 / 3,
                         'users/entrust-subaccount-list': 10,
                         'account/subaccount/interest-limits': 4,
+                        'users/subaccount/apikey': 10,
                         # grid trading
                         'tradingBot/grid/orders-algo-pending': 1,
                         'tradingBot/grid/orders-algo-history': 1,
@@ -525,11 +527,15 @@ class okx(Exchange, ImplicitAPI):
                         'account/fixed-loan/manual-reborrow': 5,
                         'account/fixed-loan/repay-borrowing-order': 5,
                         'account/bills-history-archive': 72000,  # 12 req/day
+                        'account/move-positions': 10,
                         # subaccount
                         'users/subaccount/modify-apikey': 10,
                         'asset/subaccount/transfer': 10,
                         'users/subaccount/set-transfer-out': 10,
                         'account/subaccount/set-loan-allocation': 4,
+                        'users/subaccount/create-subaccount': 10,
+                        'users/subaccount/subaccount-apikey': 10,
+                        'users/subaccount/delete-apikey': 10,
                         # grid trading
                         'tradingBot/grid/order-algo': 1,
                         'tradingBot/grid/amend-order-algo': 1,
@@ -940,6 +946,11 @@ class okx(Exchange, ImplicitAPI):
                     '59506': ExchangeError,  # APIKey does not exist
                     '59507': ExchangeError,  # The two accounts involved in a transfer must be two different sub accounts under the same parent account
                     '59508': AccountSuspended,  # The sub account of {0} is suspended
+                    '59515': ExchangeError,  # You are currently not on the custody whitelist. Please contact customer service for assistance.
+                    '59516': ExchangeError,  # Please create the Copper custody funding account first.
+                    '59517': ExchangeError,  # Please create the Komainu custody funding account first.
+                    '59518': ExchangeError,  # You can’t create a sub-account using the API; please use the app or web.
+                    '59519': ExchangeError,  # You can’t use self function/feature while it's frozen, due to: {freezereason}
                     '59642': BadRequest,  # Lead and copy traders can only use margin-free or single-currency margin account modes
                     '59643': ExchangeError,  # Couldn’t switch account modes’re currently copying spot trades
                     # WebSocket error Codes from 60000-63999
@@ -983,6 +994,13 @@ class okx(Exchange, ImplicitAPI):
                     '70010': BadRequest,  # Timestamp parameters need to be in Unix timestamp format in milliseconds.
                     '70013': BadRequest,  # endTs needs to be bigger than or equal to beginTs.
                     '70016': BadRequest,  # Please specify your instrument settings for at least one instType.
+                    '70060': BadRequest,  # The account doesn’t exist or the position side is incorrect. To and from accounts must be under the same main account.
+                    '70061': BadRequest,  # To move position, please enter a position that’s opposite to your current side and is smaller than or equal to your current size.
+                    '70062': BadRequest,  # account has reached the maximum number of position transfers allowed per day.
+                    '70064': BadRequest,  # Position does not exist.
+                    '70065': BadRequest,  # Couldn’t move position. Execution price cannot be determined
+                    '70066': BadRequest,  # Moving positions isn't supported in spot mode. Switch to any other account mode and try again.
+                    '70067': BadRequest,  # Moving positions isn't supported in margin trading.
                     '1009': BadRequest,  # Request message exceeds the maximum frame length
                     '4001': AuthenticationError,  # Login Failed
                     '4002': BadRequest,  # Invalid Request
@@ -1294,6 +1312,7 @@ class okx(Exchange, ImplicitAPI):
                     },
                     'fetchOHLCV': {
                         'limit': 300,
+                        'historical': 100,
                     },
                 },
                 'spot': {
@@ -1607,8 +1626,8 @@ class okx(Exchange, ImplicitAPI):
         swap = (type == 'swap')
         option = (type == 'option')
         contract = swap or future or option
-        baseId = self.safe_string(market, 'baseCcy')
-        quoteId = self.safe_string(market, 'quoteCcy')
+        baseId = self.safe_string(market, 'baseCcy', '')  # defaulting to '' because some weird preopen markets have empty baseId
+        quoteId = self.safe_string(market, 'quoteCcy', '')
         settleId = self.safe_string(market, 'settleCcy')
         settle = self.safe_currency_code(settleId)
         underlying = self.safe_string(market, 'uly')
@@ -1623,18 +1642,21 @@ class okx(Exchange, ImplicitAPI):
         strikePrice = None
         optionType = None
         if contract:
-            symbol = symbol + ':' + settle
-            expiry = self.safe_integer(market, 'expTime')
+            if settle is not None:
+                symbol = symbol + ':' + settle
             if future:
-                ymd = self.yymmdd(expiry)
-                symbol = symbol + '-' + ymd
+                expiry = self.safe_integer(market, 'expTime')
+                if expiry is not None:
+                    ymd = self.yymmdd(expiry)
+                    symbol = symbol + '-' + ymd
             elif option:
+                expiry = self.safe_integer(market, 'expTime')
                 strikePrice = self.safe_string(market, 'stk')
                 optionType = self.safe_string(market, 'optType')
-                ymd = self.yymmdd(expiry)
-                symbol = symbol + '-' + ymd + '-' + strikePrice + '-' + optionType
-                optionType = 'put' if (optionType == 'P') else 'call'
-        tickSize = self.safe_string(market, 'tickSz')
+                if expiry is not None:
+                    ymd = self.yymmdd(expiry)
+                    symbol = symbol + '-' + ymd + '-' + strikePrice + '-' + optionType
+                    optionType = 'put' if (optionType == 'P') else 'call'
         fees = self.safe_dict_2(self.fees, type, 'trading', {})
         maxLeverage = self.safe_string(market, 'lever', '1')
         maxLeverage = Precise.string_max(maxLeverage, '1')
@@ -1666,7 +1688,7 @@ class okx(Exchange, ImplicitAPI):
             'created': self.safe_integer(market, 'listTime'),
             'precision': {
                 'amount': self.safe_number(market, 'lotSz'),
-                'price': self.parse_number(tickSize),
+                'price': self.safe_number(market, 'tickSz'),
             },
             'limits': {
                 'leverage': {
@@ -1819,65 +1841,55 @@ class okx(Exchange, ImplicitAPI):
             code = currency['code']
             chains = dataByCurrencyId[currencyId]
             networks: dict = {}
-            currencyActive = False
-            depositEnabled = False
-            withdrawEnabled = False
-            maxPrecision = None
-            for j in range(0, len(chains)):
+            type = 'crypto'
+            chainsLength = len(chains)
+            for j in range(0, chainsLength):
                 chain = chains[j]
-                canDeposit = self.safe_bool(chain, 'canDep')
-                depositEnabled = canDeposit if (canDeposit) else depositEnabled
-                canWithdraw = self.safe_bool(chain, 'canWd')
-                withdrawEnabled = canWithdraw if (canWithdraw) else withdrawEnabled
-                canInternal = self.safe_bool(chain, 'canInternal')
-                active = True if (canDeposit and canWithdraw and canInternal) else False
-                currencyActive = active if (active) else currencyActive
-                networkId = self.safe_string(chain, 'chain')
-                if (networkId is not None) and (networkId.find('-') >= 0):
-                    idParts = networkId.split('-')
-                    parts = self.array_slice(idParts, 1)
-                    chainPart = '-'.join(parts)
-                    networkCode = self.network_id_to_code(chainPart, currency['code'])
-                    precision = self.parse_precision(self.safe_string(chain, 'wdTickSz'))
-                    if maxPrecision is None:
-                        maxPrecision = precision
-                    else:
-                        maxPrecision = Precise.string_min(maxPrecision, precision)
-                    networks[networkCode] = {
-                        'id': networkId,
-                        'network': networkCode,
-                        'active': active,
-                        'deposit': canDeposit,
-                        'withdraw': canWithdraw,
-                        'fee': self.safe_number(chain, 'fee'),
-                        'precision': self.parse_number(precision),
-                        'limits': {
-                            'withdraw': {
-                                'min': self.safe_number(chain, 'minWd'),
-                                'max': self.safe_number(chain, 'maxWd'),
-                            },
+                # allow empty string for rare fiat-currencies, e.g. TRY
+                networkId = self.safe_string(chain, 'chain', '')  # USDT-BEP20, USDT-Avalance-C, etc
+                if networkId == '':
+                    # only happens for fiat 'TRY' currency
+                    type = 'fiat'
+                idParts = networkId.split('-')
+                parts = self.array_slice(idParts, 1)
+                chainPart = '-'.join(parts)
+                networkCode = self.network_id_to_code(chainPart, currency['code'])
+                networks[networkCode] = {
+                    'id': networkId,
+                    'network': networkCode,
+                    'active': None,
+                    'deposit': self.safe_bool(chain, 'canDep'),
+                    'withdraw': self.safe_bool(chain, 'canWd'),
+                    'fee': self.safe_number(chain, 'fee'),
+                    'precision': self.parse_number(self.parse_precision(self.safe_string(chain, 'wdTickSz'))),
+                    'limits': {
+                        'withdraw': {
+                            'min': self.safe_number(chain, 'minWd'),
+                            'max': self.safe_number(chain, 'maxWd'),
                         },
-                        'info': chain,
-                    }
+                    },
+                    'info': chain,
+                }
             firstChain = self.safe_dict(chains, 0, {})
-            result[code] = {
+            result[code] = self.safe_currency_structure({
                 'info': chains,
                 'code': code,
                 'id': currencyId,
                 'name': self.safe_string(firstChain, 'name'),
-                'active': currencyActive,
-                'deposit': depositEnabled,
-                'withdraw': withdrawEnabled,
+                'active': None,
+                'deposit': None,
+                'withdraw': None,
                 'fee': None,
-                'precision': self.parse_number(maxPrecision),
+                'precision': None,
                 'limits': {
                     'amount': {
                         'min': None,
                         'max': None,
                     },
                 },
+                'type': type,
                 'networks': networks,
-            }
+            })
         return result
 
     async def fetch_order_book(self, symbol: str, limit: Int = None, params={}) -> OrderBook:
@@ -2394,6 +2406,8 @@ class okx(Exchange, ImplicitAPI):
         timezone = self.safe_string(options, 'timezone', 'UTC')
         if limit is None:
             limit = 100  # default 100, max 100
+        else:
+            limit = min(limit, 300)  # max 100
         duration = self.parse_timeframe(timeframe)
         bar = self.safe_string(self.timeframes, timeframe, timeframe)
         if (timezone == 'UTC') and (duration >= 21600):  # if utc and timeframe >= 6h
@@ -2411,6 +2425,7 @@ class okx(Exchange, ImplicitAPI):
             historyBorder = now - ((1440 - 1) * durationInMilliseconds)
             if since < historyBorder:
                 defaultType = 'HistoryCandles'
+                limit = min(limit, 100)  # max 100 for historical endpoint
             startTime = max(since - 1, 0)
             request['before'] = startTime
             request['after'] = self.sum(since, durationInMilliseconds * limit)
@@ -4825,7 +4840,7 @@ class okx(Exchange, ImplicitAPI):
         :returns dict: an `address structure <https://docs.ccxt.com/#/?id=address-structure>`
         """
         await self.load_markets()
-        rawNetwork = self.safe_string_upper(params, 'network')
+        rawNetwork = self.safe_string(params, 'network')  # some networks are like "Dora Vota Mainnet"
         params = self.omit(params, 'network')
         code = self.safe_currency_code(code)
         network = self.network_id_to_code(rawNetwork, code)
@@ -5395,7 +5410,7 @@ class okx(Exchange, ImplicitAPI):
             return None
         return self.parse_position(position, market)
 
-    async def fetch_positions(self, symbols: Strings = None, params={}):
+    async def fetch_positions(self, symbols: Strings = None, params={}) -> List[Position]:
         """
 
         https://www.okx.com/docs-v5/en/#rest-api-account-get-positions
