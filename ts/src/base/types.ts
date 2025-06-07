@@ -280,13 +280,6 @@ export interface WithdrawalResponse {
     id: string;
 }
 
-export interface DepositAddressResponse {
-    currency: Str;
-    address: string;
-    info: any;
-    tag?: Str;
-}
-
 export interface FundingRate {
     symbol: string;
     info: any;
@@ -500,6 +493,9 @@ export interface Greeks {
     theta: number;
     vega: number;
     rho: number;
+    vanna?: number;
+    volga?: number;
+    charm?: number;
     bidSize: number;
     askSize: number;
     bidImpliedVolatility: number;

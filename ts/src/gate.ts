@@ -108,7 +108,7 @@ export default class gate extends Exchange {
                 'fetchCurrencies': true,
                 'fetchDepositAddress': true,
                 'fetchDepositAddresses': false,
-                'fetchDepositAddressesByNetwork': false,
+                'fetchDepositAddressesByNetwork': true,
                 'fetchDeposits': true,
                 'fetchDepositWithdrawFee': 'emulated',
                 'fetchDepositWithdrawFees': true,
@@ -717,6 +717,16 @@ export default class gate extends Exchange {
                 },
                 'networksById': {
                     'OPETH': 'OP',
+                    'ETH': 'ERC20', // for GOlang
+                    'ERC20': 'ERC20',
+                    'TRX': 'TRC20',
+                    'TRC20': 'TRC20',
+                    'HT': 'HRC20',
+                    'HECO': 'HRC20',
+                    'BSC': 'BEP20',
+                    'BEP20': 'BEP20',
+                    'POLYGON': 'MATIC',
+                    'POL': 'MATIC',
                 },
                 'timeInForce': {
                     'GTC': 'gtc',
@@ -1218,6 +1228,9 @@ export default class gate extends Exchange {
         if (this.options['adjustForTimeDifference']) {
             await this.loadTimeDifference ();
         }
+        if (this.checkRequiredCredentials (false)) {
+            await this.loadUnifiedStatus ();
+        }
         const sandboxMode = this.safeBool (this.options, 'sandboxMode', false);
         let rawPromises = [
             this.fetchContractMarkets (params),
@@ -1489,6 +1502,11 @@ export default class gate extends Exchange {
         const takerPercent = this.safeString (market, 'taker_fee_rate');
         const makerPercent = this.safeString (market, 'maker_fee_rate', takerPercent);
         const isLinear = quote === settle;
+        let contractSize = this.safeString (market, 'quanto_multiplier');
+        // exception only for one market: https://api.gateio.ws/api/v4/futures/btc/contracts
+        if (contractSize === '0') {
+            contractSize = '1'; // 1 USD in WEB: https://i.imgur.com/MBBUI04.png
+        }
         return {
             'id': id,
             'symbol': symbol,
@@ -1510,7 +1528,7 @@ export default class gate extends Exchange {
             'inverse': !isLinear,
             'taker': this.parseNumber (Precise.stringDiv (takerPercent, '100')), // Fee is in %, so divide by 100
             'maker': this.parseNumber (Precise.stringDiv (makerPercent, '100')),
-            'contractSize': this.safeNumber (market, 'quanto_multiplier'),
+            'contractSize': this.parseNumber (contractSize),
             'expiry': expiry,
             'expiryDatetime': this.iso8601 (expiry),
             'strike': undefined,
@@ -1831,88 +1849,93 @@ export default class gate extends Exchange {
         if (apiBackup !== undefined) {
             return undefined;
         }
-        if (this.checkRequiredCredentials (false)) {
-            await this.loadUnifiedStatus ();
-        }
         const response = await this.publicSpotGetCurrencies (params);
         //
-        //  [
-        //   {
-        //       "currency": "USDT_ETH",
-        //       "name": "Tether",
-        //       "delisted": false,
-        //       "withdraw_disabled": false,
-        //       "withdraw_delayed": false,
-        //       "deposit_disabled": false,
-        //       "trade_disabled": true,
-        //       "chain": "ETH"
-        //    },
-        //  ]
+        //    [
+        //      {
+        //         "currency": "USDT",
+        //         "name": "Tether",
+        //         "delisted": false,
+        //         "withdraw_disabled": false,
+        //         "withdraw_delayed": false,
+        //         "deposit_disabled": false,
+        //         "trade_disabled": false,
+        //         "fixed_rate": "",
+        //         "chain": "ETH",
+        //         "chains": [
+        //           {
+        //             "name": "ETH",
+        //             "addr": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        //             "withdraw_disabled": false,
+        //             "withdraw_delayed": false,
+        //             "deposit_disabled": false
+        //           },
+        //           {
+        //             "name": "ARBEVM",
+        //             "addr": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+        //             "withdraw_disabled": false,
+        //             "withdraw_delayed": false,
+        //             "deposit_disabled": false
+        //           },
+        //           {
+        //             "name": "BSC",
+        //             "addr": "0x55d398326f99059fF775485246999027B3197955",
+        //             "withdraw_disabled": false,
+        //             "withdraw_delayed": false,
+        //             "deposit_disabled": false
+        //           },
+        //         ]
+        //       },
+        //    ]
         //
         const indexedCurrencies = this.indexBy (response, 'currency');
         const result: Dict = {};
         for (let i = 0; i < response.length; i++) {
             const entry = response[i];
             const currencyId = this.safeString (entry, 'currency');
-            const parts = currencyId.split ('_');
-            const partFirst = this.safeString (parts, 0);
-            // if there's an underscore then the second part is always the chain name (except the _OLD suffix)
-            const currencyName = currencyId.endsWith ('_OLD') ? currencyId : partFirst;
-            const withdrawEnabled = !this.safeBool (entry, 'withdraw_disabled');
-            const depositEnabled = !this.safeBool (entry, 'deposit_disabled');
-            const tradeDisabled = !this.safeBool (entry, 'trade_disabled');
-            const precision = this.parseNumber ('0.0001'); // temporary safe default, because no value provided from API
-            const code = this.safeCurrencyCode (currencyName);
+            const code = this.safeCurrencyCode (currencyId);
             // check leveraged tokens (e.g. BTC3S, ETH5L)
-            let isLeveragedToken = false;
-            if (currencyId.endsWith ('3S') || currencyId.endsWith ('3L') || currencyId.endsWith ('5S') || currencyId.endsWith ('5L')) {
-                const realCurrencyId = currencyId.slice (0, -2);
-                if (realCurrencyId in indexedCurrencies) {
-                    isLeveragedToken = true;
-                }
-            }
-            const type = isLeveragedToken ? 'leveraged' : 'crypto';
-            // some networks are null, they are mostly obsolete & unsupported dead tokens, so we can default their networkId to their tokenname
-            const networkId = this.safeString (entry, 'chain', currencyId);
-            const networkCode = this.networkIdToCode (networkId, code);
-            const networkEntry = {
-                'info': entry,
-                'id': networkId,
-                'network': networkCode,
-                'limits': {
-                    'deposit': {
-                        'min': undefined,
-                        'max': undefined,
+            const type = this.isLeveragedCurrency (currencyId, true, indexedCurrencies) ? 'leveraged' : 'crypto';
+            const chains = this.safeList (entry, 'chains', []);
+            const networks = {};
+            for (let j = 0; j < chains.length; j++) {
+                const chain = chains[j];
+                const networkId = this.safeString (chain, 'name');
+                const networkCode = this.networkIdToCode (networkId);
+                networks[networkCode] = {
+                    'info': chain,
+                    'id': networkId,
+                    'network': networkCode,
+                    'active': undefined,
+                    'deposit': !this.safeBool (chain, 'deposit_disabled'),
+                    'withdraw': !this.safeBool (chain, 'withdraw_disabled'),
+                    'fee': undefined,
+                    'precision': this.parseNumber ('0.0001'), // temporary safe default, because no value provided from API,
+                    'limits': {
+                        'deposit': {
+                            'min': undefined,
+                            'max': undefined,
+                        },
+                        'withdraw': {
+                            'min': undefined,
+                            'max': undefined,
+                        },
                     },
-                    'withdraw': {
-                        'min': undefined,
-                        'max': undefined,
-                    },
-                },
-                'active': !tradeDisabled,
-                'deposit': depositEnabled,
-                'withdraw': withdrawEnabled,
-                'fee': undefined,
-                'precision': precision,
-            };
-            // check if first entry for the specific currency
-            if (!(code in result)) {
-                result[code] = {
-                    'id': currencyName,
-                    'lowerCaseId': currencyName.toLowerCase (),
-                    'code': code,
-                    'type': type,
-                    'precision': precision,
-                    'limits': this.limits,
-                    'networks': {},
-                    'info': [], // will be filled below
                 };
             }
-            result[code]['networks'][networkCode] = networkEntry;
-            const info = this.safeList (result[code], 'info', []);
-            info.push (entry);
-            result[code]['info'] = info;
-            result[code] = this.safeCurrencyStructure (result[code]); // this is needed after adding network entry
+            result[code] = this.safeCurrencyStructure ({
+                'id': currencyId,
+                'code': code,
+                'name': this.safeString (entry, 'name'),
+                'type': type,
+                'active': !this.safeBool (entry, 'delisted'),
+                'deposit': !this.safeBool (entry, 'deposit_disabled'),
+                'withdraw': !this.safeBool (entry, 'withdraw_disabled'),
+                'fee': undefined,
+                'networks': networks,
+                'precision': this.parseNumber ('0.0001'),
+                'info': entry,
+            });
         }
         return result;
     }
@@ -2190,9 +2213,7 @@ export default class gate extends Exchange {
         const chains = this.safeValue (response, 'multichain_addresses', []);
         const currencyId = this.safeString (response, 'currency');
         currency = this.safeCurrency (currencyId, currency);
-        const parsed = this.parseDepositAddresses (chains, [ currency['code'] ], false, {
-            'currency': currency['id'],
-        });
+        const parsed = this.parseDepositAddresses (chains, undefined, false);
         return this.indexBy (parsed, 'network') as DepositAddress[];
     }
 
@@ -2211,8 +2232,8 @@ export default class gate extends Exchange {
         let networkCode = undefined;
         [ networkCode, params ] = this.handleNetworkCodeAndParams (params);
         const chainsIndexedById = await this.fetchDepositAddressesByNetwork (code, params);
-        const selectedNetworkId = this.selectNetworkCodeFromUnifiedNetworks (code, networkCode, chainsIndexedById);
-        return chainsIndexedById[selectedNetworkId];
+        const selectedNetworkIdOrCode = this.selectNetworkCodeFromUnifiedNetworks (code, networkCode, chainsIndexedById);
+        return chainsIndexedById[selectedNetworkIdOrCode];
     }
 
     parseDepositAddress (depositAddress, currency = undefined) {
@@ -6055,7 +6076,7 @@ export default class gate extends Exchange {
      * @param {string} [params.type] swap, future or option, if not provided this.options['defaultType'] is used
      * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/#/?id=position-structure}
      */
-    async fetchPositions (symbols: Strings = undefined, params = {}) {
+    async fetchPositions (symbols: Strings = undefined, params = {}): Promise<Position[]> {
         await this.loadMarkets ();
         let market = undefined;
         symbols = this.marketSymbols (symbols, undefined, true, true, true);
@@ -6726,6 +6747,10 @@ export default class gate extends Exchange {
             if ((method === 'GET') || (method === 'DELETE') || requiresURLEncoding || (method === 'PATCH')) {
                 if (Object.keys (query).length) {
                     queryString = this.urlencode (query);
+                    // https://github.com/ccxt/ccxt/issues/25570
+                    if (queryString.indexOf ('currencies=') >= 0 && queryString.indexOf ('%2C') >= 0) {
+                        queryString = queryString.replaceAll ('%2C', ',');
+                    }
                     url += '?' + queryString;
                 }
                 if (method === 'PATCH') {

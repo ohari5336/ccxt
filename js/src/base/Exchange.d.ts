@@ -1,8 +1,8 @@
 import * as functions from './functions.js';
 import WsClient from './ws/WsClient.js';
 import { OrderBook as WsOrderBook, IndexedOrderBook, CountedOrderBook } from './ws/OrderBook.js';
-import type { Market, Trade, Ticker, OHLCV, OHLCVC, Order, OrderBook, Balance, Balances, Dictionary, Transaction, DepositAddressResponse, Currency, MinMax, IndexType, Int, OrderType, OrderSide, Position, FundingRate, DepositWithdrawFeeNetwork, LedgerEntry, BorrowInterest, OpenInterest, LeverageTier, TransferEntry, FundingRateHistory, Liquidation, FundingHistory, OrderRequest, MarginMode, Tickers, Greeks, Option, OptionChain, Str, Num, MarketInterface, CurrencyInterface, BalanceAccount, MarginModes, MarketType, Leverage, Leverages, LastPrice, LastPrices, Account, Strings, MarginModification, TradingFeeInterface, Currencies, TradingFees, Conversion, CancellationRequest, IsolatedBorrowRate, IsolatedBorrowRates, CrossBorrowRates, CrossBorrowRate, Dict, FundingRates, LeverageTiers, Bool, int, DepositAddress, LongShortRatio, OrderBooks, OpenInterests, ConstructorArgs } from './types.js';
-export type { Market, Trade, Fee, Ticker, OHLCV, OHLCVC, Order, OrderBook, Balance, Balances, Dictionary, Transaction, DepositAddressResponse, Currency, MinMax, IndexType, Int, Bool, OrderType, OrderSide, Position, LedgerEntry, BorrowInterest, OpenInterest, LeverageTier, TransferEntry, CrossBorrowRate, FundingRateHistory, Liquidation, FundingHistory, OrderRequest, MarginMode, Tickers, Greeks, Option, OptionChain, Str, Num, MarketInterface, CurrencyInterface, BalanceAccount, MarginModes, MarketType, Leverage, Leverages, LastPrice, LastPrices, Account, Strings, Conversion, DepositAddress, LongShortRatio } from './types.js';
+import type { Market, Trade, Ticker, OHLCV, OHLCVC, Order, OrderBook, Balance, Balances, Dictionary, Transaction, Currency, MinMax, IndexType, Int, OrderType, OrderSide, Position, FundingRate, DepositWithdrawFeeNetwork, LedgerEntry, BorrowInterest, OpenInterest, LeverageTier, TransferEntry, FundingRateHistory, Liquidation, FundingHistory, OrderRequest, MarginMode, Tickers, Greeks, Option, OptionChain, Str, Num, MarketInterface, CurrencyInterface, BalanceAccount, MarginModes, MarketType, Leverage, Leverages, LastPrice, LastPrices, Account, Strings, MarginModification, TradingFeeInterface, Currencies, TradingFees, Conversion, CancellationRequest, IsolatedBorrowRate, IsolatedBorrowRates, CrossBorrowRates, CrossBorrowRate, Dict, FundingRates, LeverageTiers, Bool, int, DepositAddress, LongShortRatio, OrderBooks, OpenInterests, ConstructorArgs } from './types.js';
+export type { Market, Trade, Fee, Ticker, OHLCV, OHLCVC, Order, OrderBook, Balance, Balances, Dictionary, Transaction, Currency, MinMax, IndexType, Int, Bool, OrderType, OrderSide, Position, LedgerEntry, BorrowInterest, OpenInterest, LeverageTier, TransferEntry, CrossBorrowRate, FundingRateHistory, Liquidation, FundingHistory, OrderRequest, MarginMode, Tickers, Greeks, Option, OptionChain, Str, Num, MarketInterface, CurrencyInterface, BalanceAccount, MarginModes, MarketType, Leverage, Leverages, LastPrice, LastPrices, Account, Strings, Conversion, DepositAddress, LongShortRatio } from './types.js';
 import { ArrayCache, ArrayCacheByTimestamp } from './ws/Cache.js';
 import { OrderBook as Ob } from './ws/OrderBook.js';
 import Client from './ws/Client.js';
@@ -252,7 +252,7 @@ export default class Exchange {
     }, digest?: "binary" | "hex" | "base64") => any;
     arrayConcat: (a: any[], b: any[]) => any[];
     encode: (str: string) => Uint8Array;
-    urlencode: (object: object) => string;
+    urlencode: (object: object, sort?: boolean) => string;
     hmac: (request: import("../static_dependencies/noble-hashes/utils.js").Input, secret: import("../static_dependencies/noble-hashes/utils.js").Input, hash: {
         (message: import("../static_dependencies/noble-hashes/utils.js").Input): Uint8Array;
         outputLen: number;
@@ -335,7 +335,21 @@ export default class Exchange {
     onRestResponse(statusCode: any, statusText: any, url: any, method: any, responseHeaders: any, responseBody: any, requestHeaders: any, requestBody: any): any;
     onJsonResponse(responseBody: any): any;
     loadMarketsHelper(reload?: boolean, params?: {}): Promise<Dictionary<any>>;
-    loadMarkets(reload?: boolean, params?: {}): Promise<Dictionary<Market>>;
+    /**
+     * @method
+     * @name Exchange#loadMarkets
+     * @description Loads and prepares the markets for trading.
+     * @param {boolean} reload - If true, the markets will be reloaded from the exchange.
+     * @param {object} params - Additional exchange-specific parameters for the request.
+     * @returns A promise that resolves to a dictionary of markets.
+     * @throws An error if the markets cannot be loaded or prepared.
+     * @remarks This method is asynchronous and returns a promise.
+     *          It ensures that the markets are only loaded once, even if the method is called multiple times.
+     *          If the markets are already loaded and not reloading, the method returns the existing markets.
+     *          If the markets are being reloaded, the method waits for the reload to complete before returning the markets.
+     *          If an error occurs during the loading or preparation of the markets, the promise is rejected with the error.
+     */
+    loadMarkets(reload?: boolean, params?: object): Promise<Dictionary<Market>>;
     fetchCurrencies(params?: {}): Promise<Currencies>;
     fetchCurrenciesWs(params?: {}): Promise<unknown>;
     fetchMarkets(params?: {}): Promise<Market[]>;
@@ -377,6 +391,8 @@ export default class Exchange {
     };
     starknetEncodeStructuredData(domain: any, messageTypes: any, messageData: any, address: any): string;
     starknetSign(hash: any, pri: any): string;
+    getZKContractSignatureObj(seed: any, params?: {}): Promise<any>;
+    getZKTransferSignatureObj(seed: any, params?: {}): Promise<any>;
     intToBase16(elem: any): string;
     extendExchangeOptions(newOptions: Dict): void;
     createSafeDictionary(): {};
@@ -400,6 +416,7 @@ export default class Exchange {
     getCacheIndex(orderbook: any, deltas: any): number;
     findTimeframe(timeframe: any, timeframes?: any): string;
     checkProxyUrlSettings(url?: Str, method?: Str, headers?: any, body?: any): any;
+    urlEncoderForProxyUrl(targetUrl: string): string;
     checkProxySettings(url?: Str, method?: Str, headers?: any, body?: any): any[];
     checkWsProxySettings(): any[];
     checkConflictingProxies(proxyAgentSet: any, proxyUrlSet: any): void;
@@ -474,7 +491,7 @@ export default class Exchange {
     watchFundingRatesForSymbols(symbols: string[], params?: {}): Promise<{}>;
     transfer(code: string, amount: number, fromAccount: string, toAccount: string, params?: {}): Promise<TransferEntry>;
     withdraw(code: string, amount: number, address: string, tag?: any, params?: {}): Promise<Transaction>;
-    createDepositAddress(code: string, params?: {}): Promise<DepositAddressResponse>;
+    createDepositAddress(code: string, params?: {}): Promise<DepositAddress>;
     setLeverage(leverage: Int, symbol?: Str, params?: {}): Promise<{}>;
     fetchLeverage(symbol: string, params?: {}): Promise<Leverage>;
     fetchLeverages(symbols?: Strings, params?: {}): Promise<Leverages>;
@@ -761,6 +778,7 @@ export default class Exchange {
     currency(code: string): any;
     market(symbol: string): MarketInterface;
     createExpiredOptionMarket(symbol: string): MarketInterface;
+    isLeveragedCurrency(currencyCode: any, checkBaseCoin?: Bool, existingCurrencies?: Dict): boolean;
     handleWithdrawTagAndParams(tag: any, params: any): any;
     createLimitOrder(symbol: string, side: OrderSide, amount: number, price: number, params?: {}): Promise<Order>;
     createLimitOrderWs(symbol: string, side: OrderSide, amount: number, price: number, params?: {}): Promise<Order>;
@@ -800,7 +818,7 @@ export default class Exchange {
     createStopLimitOrderWs(symbol: string, side: OrderSide, amount: number, price: number, triggerPrice: number, params?: {}): Promise<Order>;
     createStopMarketOrder(symbol: string, side: OrderSide, amount: number, triggerPrice: number, params?: {}): Promise<Order>;
     createStopMarketOrderWs(symbol: string, side: OrderSide, amount: number, triggerPrice: number, params?: {}): Promise<Order>;
-    safeCurrencyCode(currencyId: Str, currency?: Currency): string;
+    safeCurrencyCode(currencyId: Str, currency?: Currency): Str;
     filterBySymbolSinceLimit(array: any, symbol?: Str, since?: Int, limit?: Int, tail?: boolean): any;
     filterByCurrencySinceLimit(array: any, code?: any, since?: Int, limit?: Int, tail?: boolean): any;
     filterBySymbolsSinceLimit(array: any, symbols?: string[], since?: Int, limit?: Int, tail?: boolean): any;
@@ -858,7 +876,8 @@ export default class Exchange {
     fetchPaginatedCallCursor(method: string, symbol?: Str, since?: any, limit?: any, params?: {}, cursorReceived?: any, cursorSent?: any, cursorIncrement?: any, maxEntriesPerRequest?: any): Promise<any>;
     fetchPaginatedCallIncremental(method: string, symbol?: Str, since?: any, limit?: any, params?: {}, pageKey?: any, maxEntriesPerRequest?: any): Promise<any>;
     sortCursorPaginatedResult(result: any): any;
-    removeRepeatedElementsFromArray(input: any): any;
+    removeRepeatedElementsFromArray(input: any, fallbackToTimestamp?: boolean): any;
+    removeRepeatedTradesFromArray(input: any): any;
     handleUntilOption(key: string, request: any, params: any, multiplier?: number): any[];
     safeOpenInterest(interest: Dict, market?: Market): OpenInterest;
     parseLiquidation(liquidation: any, market?: Market): Liquidation;
