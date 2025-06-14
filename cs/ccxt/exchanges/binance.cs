@@ -10,7 +10,7 @@ public partial class binance : Exchange
         return this.deepExtend(base.describe(), new Dictionary<string, object>() {
             { "id", "binance" },
             { "name", "Binance" },
-            { "countries", new List<object>() {"JP", "MT"} },
+            { "countries", new List<object>() {} },
             { "rateLimit", 50 },
             { "certified", true },
             { "pro", true },
@@ -1297,6 +1297,7 @@ public partial class binance : Exchange
                 { "sandboxMode", false },
                 { "fetchMargins", true },
                 { "fetchMarkets", new List<object>() {"spot", "linear", "inverse"} },
+                { "loadAllOptions", false },
                 { "fetchCurrencies", true },
                 { "defaultTimeInForce", "GTC" },
                 { "defaultType", "spot" },
@@ -1314,12 +1315,13 @@ public partial class binance : Exchange
                 } },
                 { "quoteOrderQty", true },
                 { "broker", new Dictionary<string, object>() {
-                    { "spot", "x-R4BD3S82" },
-                    { "margin", "x-R4BD3S82" },
-                    { "future", "x-xcKtGhcu" },
+                    { "spot", "x-TKT5PX2F" },
+                    { "margin", "x-TKT5PX2F" },
+                    { "future", "x-cvBPrNm9" },
                     { "delivery", "x-xcKtGhcu" },
-                    { "swap", "x-xcKtGhcu" },
+                    { "swap", "x-cvBPrNm9" },
                     { "option", "x-xcKtGhcu" },
+                    { "inverse", "x-xcKtGhcu" },
                 } },
                 { "accountsByType", new Dictionary<string, object>() {
                     { "main", "MAIN" },
@@ -1352,194 +1354,8 @@ public partial class binance : Exchange
                     { "SPL", "SOL" },
                     { "SOL", "SOL" },
                 } },
-                { "reverseNetworks", new Dictionary<string, object>() {
-                    { "tronscan.org", "TRC20" },
-                    { "etherscan.io", "ERC20" },
-                    { "bscscan.com", "BSC" },
-                    { "explorer.binance.org", "BEP2" },
-                    { "bithomp.com", "XRP" },
-                    { "bloks.io", "EOS" },
-                    { "stellar.expert", "XLM" },
-                    { "blockchair.com/bitcoin", "BTC" },
-                    { "blockchair.com/bitcoin-cash", "BCH" },
-                    { "blockchair.com/ecash", "XEC" },
-                    { "explorer.litecoin.net", "LTC" },
-                    { "explorer.avax.network", "AVAX" },
-                    { "solscan.io", "SOL" },
-                    { "polkadot.subscan.io", "DOT" },
-                    { "dashboard.internetcomputer.org", "ICP" },
-                    { "explorer.chiliz.com", "CHZ" },
-                    { "cardanoscan.io", "ADA" },
-                    { "mainnet.theoan.com", "AION" },
-                    { "algoexplorer.io", "ALGO" },
-                    { "explorer.ambrosus.com", "AMB" },
-                    { "viewblock.io/zilliqa", "ZIL" },
-                    { "viewblock.io/arweave", "AR" },
-                    { "explorer.ark.io", "ARK" },
-                    { "atomscan.com", "ATOM" },
-                    { "www.mintscan.io", "CTK" },
-                    { "explorer.bitcoindiamond.org", "BCD" },
-                    { "btgexplorer.com", "BTG" },
-                    { "bts.ai", "BTS" },
-                    { "explorer.celo.org", "CELO" },
-                    { "explorer.nervos.org", "CKB" },
-                    { "cerebro.cortexlabs.ai", "CTXC" },
-                    { "chainz.cryptoid.info", "VIA" },
-                    { "explorer.dcrdata.org", "DCR" },
-                    { "digiexplorer.info", "DGB" },
-                    { "dock.subscan.io", "DOCK" },
-                    { "dogechain.info", "DOGE" },
-                    { "explorer.elrond.com", "EGLD" },
-                    { "blockscout.com", "ETC" },
-                    { "explore-fetchhub.fetch.ai", "FET" },
-                    { "filfox.info", "FIL" },
-                    { "fio.bloks.io", "FIO" },
-                    { "explorer.firo.org", "FIRO" },
-                    { "neoscan.io", "NEO" },
-                    { "ftmscan.com", "FTM" },
-                    { "explorer.gochain.io", "GO" },
-                    { "block.gxb.io", "GXS" },
-                    { "hash-hash.info", "HBAR" },
-                    { "www.hiveblockexplorer.com", "HIVE" },
-                    { "explorer.helium.com", "HNT" },
-                    { "tracker.icon.foundation", "ICX" },
-                    { "www.iostabc.com", "IOST" },
-                    { "explorer.iota.org", "IOTA" },
-                    { "iotexscan.io", "IOTX" },
-                    { "irishub.iobscan.io", "IRIS" },
-                    { "kava.mintscan.io", "KAVA" },
-                    { "scope.klaytn.com", "KLAY" },
-                    { "kmdexplorer.io", "KMD" },
-                    { "kusama.subscan.io", "KSM" },
-                    { "explorer.lto.network", "LTO" },
-                    { "polygonscan.com", "POLYGON" },
-                    { "explorer.ont.io", "ONT" },
-                    { "minaexplorer.com", "MINA" },
-                    { "nanolooker.com", "NANO" },
-                    { "explorer.nebulas.io", "NAS" },
-                    { "explorer.nbs.plus", "NBS" },
-                    { "explorer.nebl.io", "NEBL" },
-                    { "nulscan.io", "NULS" },
-                    { "nxscan.com", "NXS" },
-                    { "explorer.harmony.one", "ONE" },
-                    { "explorer.poa.network", "POA" },
-                    { "qtum.info", "QTUM" },
-                    { "explorer.rsk.co", "RSK" },
-                    { "www.oasisscan.com", "ROSE" },
-                    { "ravencoin.network", "RVN" },
-                    { "sc.tokenview.com", "SC" },
-                    { "secretnodes.com", "SCRT" },
-                    { "explorer.skycoin.com", "SKY" },
-                    { "steemscan.com", "STEEM" },
-                    { "explorer.stacks.co", "STX" },
-                    { "www.thetascan.io", "THETA" },
-                    { "scan.tomochain.com", "TOMO" },
-                    { "explore.vechain.org", "VET" },
-                    { "explorer.vite.net", "VITE" },
-                    { "www.wanscan.org", "WAN" },
-                    { "wavesexplorer.com", "WAVES" },
-                    { "wax.eosx.io", "WAXP" },
-                    { "waltonchain.pro", "WTC" },
-                    { "chain.nem.ninja", "XEM" },
-                    { "verge-blockchain.info", "XVG" },
-                    { "explorer.yoyow.org", "YOYOW" },
-                    { "explorer.zcha.in", "ZEC" },
-                    { "explorer.zensystem.io", "ZEN" },
-                } },
                 { "networksById", new Dictionary<string, object>() {
                     { "SOL", "SOL" },
-                    { "tronscan.org", "TRC20" },
-                    { "etherscan.io", "ERC20" },
-                    { "bscscan.com", "BSC" },
-                    { "explorer.binance.org", "BEP2" },
-                    { "bithomp.com", "XRP" },
-                    { "bloks.io", "EOS" },
-                    { "stellar.expert", "XLM" },
-                    { "blockchair.com/bitcoin", "BTC" },
-                    { "blockchair.com/bitcoin-cash", "BCH" },
-                    { "blockchair.com/ecash", "XEC" },
-                    { "explorer.litecoin.net", "LTC" },
-                    { "explorer.avax.network", "AVAX" },
-                    { "solscan.io", "SOL" },
-                    { "polkadot.subscan.io", "DOT" },
-                    { "dashboard.internetcomputer.org", "ICP" },
-                    { "explorer.chiliz.com", "CHZ" },
-                    { "cardanoscan.io", "ADA" },
-                    { "mainnet.theoan.com", "AION" },
-                    { "algoexplorer.io", "ALGO" },
-                    { "explorer.ambrosus.com", "AMB" },
-                    { "viewblock.io/zilliqa", "ZIL" },
-                    { "viewblock.io/arweave", "AR" },
-                    { "explorer.ark.io", "ARK" },
-                    { "atomscan.com", "ATOM" },
-                    { "www.mintscan.io", "CTK" },
-                    { "explorer.bitcoindiamond.org", "BCD" },
-                    { "btgexplorer.com", "BTG" },
-                    { "bts.ai", "BTS" },
-                    { "explorer.celo.org", "CELO" },
-                    { "explorer.nervos.org", "CKB" },
-                    { "cerebro.cortexlabs.ai", "CTXC" },
-                    { "chainz.cryptoid.info", "VIA" },
-                    { "explorer.dcrdata.org", "DCR" },
-                    { "digiexplorer.info", "DGB" },
-                    { "dock.subscan.io", "DOCK" },
-                    { "dogechain.info", "DOGE" },
-                    { "explorer.elrond.com", "EGLD" },
-                    { "blockscout.com", "ETC" },
-                    { "explore-fetchhub.fetch.ai", "FET" },
-                    { "filfox.info", "FIL" },
-                    { "fio.bloks.io", "FIO" },
-                    { "explorer.firo.org", "FIRO" },
-                    { "neoscan.io", "NEO" },
-                    { "ftmscan.com", "FTM" },
-                    { "explorer.gochain.io", "GO" },
-                    { "block.gxb.io", "GXS" },
-                    { "hash-hash.info", "HBAR" },
-                    { "www.hiveblockexplorer.com", "HIVE" },
-                    { "explorer.helium.com", "HNT" },
-                    { "tracker.icon.foundation", "ICX" },
-                    { "www.iostabc.com", "IOST" },
-                    { "explorer.iota.org", "IOTA" },
-                    { "iotexscan.io", "IOTX" },
-                    { "irishub.iobscan.io", "IRIS" },
-                    { "kava.mintscan.io", "KAVA" },
-                    { "scope.klaytn.com", "KLAY" },
-                    { "kmdexplorer.io", "KMD" },
-                    { "kusama.subscan.io", "KSM" },
-                    { "explorer.lto.network", "LTO" },
-                    { "polygonscan.com", "POLYGON" },
-                    { "explorer.ont.io", "ONT" },
-                    { "minaexplorer.com", "MINA" },
-                    { "nanolooker.com", "NANO" },
-                    { "explorer.nebulas.io", "NAS" },
-                    { "explorer.nbs.plus", "NBS" },
-                    { "explorer.nebl.io", "NEBL" },
-                    { "nulscan.io", "NULS" },
-                    { "nxscan.com", "NXS" },
-                    { "explorer.harmony.one", "ONE" },
-                    { "explorer.poa.network", "POA" },
-                    { "qtum.info", "QTUM" },
-                    { "explorer.rsk.co", "RSK" },
-                    { "www.oasisscan.com", "ROSE" },
-                    { "ravencoin.network", "RVN" },
-                    { "sc.tokenview.com", "SC" },
-                    { "secretnodes.com", "SCRT" },
-                    { "explorer.skycoin.com", "SKY" },
-                    { "steemscan.com", "STEEM" },
-                    { "explorer.stacks.co", "STX" },
-                    { "www.thetascan.io", "THETA" },
-                    { "scan.tomochain.com", "TOMO" },
-                    { "explore.vechain.org", "VET" },
-                    { "explorer.vite.net", "VITE" },
-                    { "www.wanscan.org", "WAN" },
-                    { "wavesexplorer.com", "WAVES" },
-                    { "wax.eosx.io", "WAXP" },
-                    { "waltonchain.pro", "WTC" },
-                    { "chain.nem.ninja", "XEM" },
-                    { "verge-blockchain.info", "XVG" },
-                    { "explorer.yoyow.org", "YOYOW" },
-                    { "explorer.zcha.in", "ZEC" },
-                    { "explorer.zensystem.io", "ZEN" },
                 } },
                 { "impliedNetworks", new Dictionary<string, object>() {
                     { "ETH", new Dictionary<string, object>() {
@@ -3189,6 +3005,15 @@ public partial class binance : Exchange
         parameters ??= new Dictionary<string, object>();
         object promisesRaw = new List<object>() {};
         object rawFetchMarkets = this.safeList(this.options, "fetchMarkets", new List<object>() {"spot", "linear", "inverse"});
+        // handle loadAllOptions option
+        object loadAllOptions = this.safeBool(this.options, "loadAllOptions", false);
+        if (isTrue(loadAllOptions))
+        {
+            if (!isTrue(this.inArray("option", rawFetchMarkets)))
+            {
+                ((IList<object>)rawFetchMarkets).Add("option");
+            }
+        }
         object sandboxMode = this.safeBool(this.options, "sandboxMode", false);
         object fetchMarkets = new List<object>() {};
         for (object i = 0; isLessThan(i, getArrayLength(rawFetchMarkets)); postFixIncrement(ref i))
@@ -4206,9 +4031,9 @@ public partial class binance : Exchange
         //
         //     {
         //         "symbol": "BTCUSDT",
-        //         "markPrice": "11793.63104562",  // mark price
+        //         "markPrice": "11793.63104562", // mark price
         //         "indexPrice": "11781.80495970", // index price
-        //         "estimatedSettlePrice": "11781.16138815", // Estimated Settle Price, only useful in the last hour before the settlement starts.
+        //         "estimatedSettlePrice": "11781.16138815", // Estimated Settle Price, only useful in the last hour before the settlement starts
         //         "lastFundingRate": "0.00038246",  // This is the lastest estimated funding rate
         //         "nextFundingTime": 1597392000000,
         //         "interestRate": "0.00010000",
@@ -5426,7 +5251,7 @@ public partial class binance : Exchange
         //             "symbol": "BTCUSDT",
         //             "orderId": 16383176297,
         //             "orderListId": -1,
-        //             "clientOrderId": "x-R4BD3S8222ecb58eb9074fb1be018c",
+        //             "clientOrderId": "x-TKT5PX2F22ecb58eb9074fb1be018c",
         //             "transactTime": 1670891847932,
         //             "price": "13500.00000000",
         //             "origQty": "0.00085000",
@@ -5475,7 +5300,6 @@ public partial class binance : Exchange
         {
             uppercaseType = "LIMIT_MAKER";
         }
-        ((IDictionary<string,object>)request)["type"] = uppercaseType;
         object triggerPrice = this.safeNumber2(parameters, "stopPrice", "triggerPrice");
         if (isTrue(!isEqual(triggerPrice, null)))
         {
@@ -5487,6 +5311,7 @@ public partial class binance : Exchange
                 uppercaseType = "STOP_LOSS_LIMIT";
             }
         }
+        ((IDictionary<string,object>)request)["type"] = uppercaseType;
         object validOrderTypes = this.safeList(getValue(market, "info"), "orderTypes");
         if (!isTrue(this.inArray(uppercaseType, validOrderTypes)))
         {
@@ -5889,7 +5714,7 @@ public partial class binance : Exchange
         //         "symbol": "BTCUSDT",
         //         "orderId": 16383176297,
         //         "orderListId": -1,
-        //         "clientOrderId": "x-R4BD3S8222ecb58eb9074fb1be018c",
+        //         "clientOrderId": "x-TKT5PX2F22ecb58eb9074fb1be018c",
         //         "transactTime": 1670891847932,
         //         "price": "13500.00000000",
         //         "origQty": "0.00085000",
@@ -5952,7 +5777,7 @@ public partial class binance : Exchange
         //       "symbol": "BTCUSDT",
         //       "orderId": 5403233939,
         //       "orderListId": -1,
-        //       "clientOrderId": "x-R4BD3S825e669e75b6c14f69a2c43e",
+        //       "clientOrderId": "x-TKT5PX2F5e669e75b6c14f69a2c43e",
         //       "transactTime": 1617151923742,
         //       "price": "0.00000000",
         //       "origQty": "0.00050000",
@@ -6127,7 +5952,7 @@ public partial class binance : Exchange
         // createOrder, cancelAllOrders, cancelOrder: portfolio margin spot margin
         //
         //     {
-        //         "clientOrderId": "x-R4BD3S82e9ef29d8346440f0b28b86",
+        //         "clientOrderId": "x-TKT5PX2Fe9ef29d8346440f0b28b86",
         //         "cummulativeQuoteQty": "0.00000000",
         //         "executedQty": "0.00000000",
         //         "fills": [],
@@ -6148,7 +5973,7 @@ public partial class binance : Exchange
         //     {
         //         "symbol": "BTCUSDT",
         //         "orderId": 24700763749,
-        //         "clientOrderId": "x-R4BD3S826f724c2a4af6425f98c7b6",
+        //         "clientOrderId": "x-TKT5PX2F6f724c2a4af6425f98c7b6",
         //         "price": "35000.00000000",
         //         "origQty": "0.00100000",
         //         "executedQty": "0.00000000",
@@ -6795,8 +6620,13 @@ public partial class binance : Exchange
         if (isTrue(isEqual(clientOrderId, null)))
         {
             object broker = this.safeDict(this.options, "broker", new Dictionary<string, object>() {});
-            object defaultId = ((bool) isTrue((getValue(market, "contract")))) ? "x-xcKtGhcu" : "x-R4BD3S82";
-            object brokerId = this.safeString(broker, marketType, defaultId);
+            object defaultId = ((bool) isTrue((getValue(market, "contract")))) ? "x-xcKtGhcu" : "x-TKT5PX2F";
+            object idMarketType = "spot";
+            if (isTrue(getValue(market, "contract")))
+            {
+                idMarketType = ((bool) isTrue((isTrue(getValue(market, "swap")) && isTrue(getValue(market, "linear"))))) ? "swap" : "inverse";
+            }
+            object brokerId = this.safeString(broker, idMarketType, defaultId);
             ((IDictionary<string,object>)request)[(string)clientOrderIdRequest] = add(brokerId, this.uuid22());
         } else
         {
@@ -7494,7 +7324,7 @@ public partial class binance : Exchange
         //         {
         //             "symbol": "BTCUSDT",
         //             "orderId": 24684460474,
-        //             "clientOrderId": "x-R4BD3S82e9ef29d8346440f0b28b86",
+        //             "clientOrderId": "x-TKT5PX2Fe9ef29d8346440f0b28b86",
         //             "price": "35000.00000000",
         //             "origQty": "0.00100000",
         //             "executedQty": "0.00000000",
@@ -9486,51 +9316,19 @@ public partial class binance : Exchange
     {
         //
         //     {
-        //         "currency": "XRP",
+        //         "coin": "XRP",
         //         "address": "rEb8TK3gBgk5auZkwc6sHnwrGVJH8DuaLh",
         //         "tag": "108618262",
-        //         "info": {
-        //             "coin": "XRP",
-        //             "address": "rEb8TK3gBgk5auZkwc6sHnwrGVJH8DuaLh",
-        //             "tag": "108618262",
-        //             "url": "https://bithomp.com/explorer/rEb8TK3gBgk5auZkwc6sHnwrGVJH8DuaLh"
-        //         }
+        //         "url": "https://bithomp.com/explorer/rEb8TK3gBgk5auZkwc6sHnwrGVJH8DuaLh"
         //     }
         //
-        object info = this.safeDict(response, "info", new Dictionary<string, object>() {});
-        object url = this.safeString(info, "url");
+        object url = this.safeString(response, "url");
         object address = this.safeString(response, "address");
         object currencyId = this.safeString(response, "currency");
         object code = this.safeCurrencyCode(currencyId, currency);
-        object impliedNetwork = null;
-        if (isTrue(!isEqual(url, null)))
-        {
-            object reverseNetworks = this.safeDict(this.options, "reverseNetworks", new Dictionary<string, object>() {});
-            object parts = ((string)url).Split(new [] {((string)"/")}, StringSplitOptions.None).ToList<object>();
-            object topLevel = this.safeString(parts, 2);
-            if (isTrue(isTrue((isEqual(topLevel, "blockchair.com"))) || isTrue((isEqual(topLevel, "viewblock.io")))))
-            {
-                object subLevel = this.safeString(parts, 3);
-                if (isTrue(!isEqual(subLevel, null)))
-                {
-                    topLevel = add(add(topLevel, "/"), subLevel);
-                }
-            }
-            impliedNetwork = this.safeString(reverseNetworks, topLevel);
-            object impliedNetworks = this.safeDict(this.options, "impliedNetworks", new Dictionary<string, object>() {
-                { "ETH", new Dictionary<string, object>() {
-                    { "ERC20", "ETH" },
-                } },
-                { "TRX", new Dictionary<string, object>() {
-                    { "TRC20", "TRX" },
-                } },
-            });
-            if (isTrue(inOp(impliedNetworks, code)))
-            {
-                object conversion = this.safeDict(impliedNetworks, code, new Dictionary<string, object>() {});
-                impliedNetwork = this.safeString(conversion, impliedNetwork, impliedNetwork);
-            }
-        }
+        // deposit-address endpoint provides only network url (not network ID/CODE)
+        // so we should map the url to network (their data is inside currencies)
+        object networkCode = this.getNetworkCodeByNetworkUrl(code, url);
         object tag = this.safeString(response, "tag", "");
         if (isTrue(isEqual(((string)tag).Length, 0)))
         {
@@ -9540,7 +9338,7 @@ public partial class binance : Exchange
         return new Dictionary<string, object>() {
             { "info", response },
             { "currency", code },
-            { "network", impliedNetwork },
+            { "network", networkCode },
             { "address", address },
             { "tag", tag },
         };
@@ -12542,6 +12340,51 @@ public partial class binance : Exchange
         return this.safeString(ledgerType, type, type);
     }
 
+    public virtual object getNetworkCodeByNetworkUrl(object currencyCode, object depositUrl = null)
+    {
+        // depositUrl is like : https://bscscan.com/address/0xEF238AB229342849..
+        if (isTrue(isEqual(depositUrl, null)))
+        {
+            return null;
+        }
+        object networkCode = null;
+        object currency = this.currency(currencyCode);
+        object networks = this.safeDict(currency, "networks", new Dictionary<string, object>() {});
+        object networkCodes = new List<object>(((IDictionary<string,object>)networks).Keys);
+        for (object i = 0; isLessThan(i, getArrayLength(networkCodes)); postFixIncrement(ref i))
+        {
+            object currentNetworkCode = getValue(networkCodes, i);
+            object info = this.safeDict(getValue(networks, currentNetworkCode), "info", new Dictionary<string, object>() {});
+            object siteUrl = this.safeString(info, "contractAddressUrl");
+            // check if url matches the field's value
+            if (isTrue(isTrue(!isEqual(siteUrl, null)) && isTrue(((string)depositUrl).StartsWith(((string)this.getBaseDomainFromUrl(siteUrl))))))
+            {
+                networkCode = currentNetworkCode;
+            }
+        }
+        return networkCode;
+    }
+
+    public virtual object getBaseDomainFromUrl(object url)
+    {
+        if (isTrue(isEqual(url, null)))
+        {
+            return null;
+        }
+        object urlParts = ((string)url).Split(new [] {((string)"/")}, StringSplitOptions.None).ToList<object>();
+        object scheme = this.safeString(urlParts, 0);
+        if (isTrue(isEqual(scheme, null)))
+        {
+            return null;
+        }
+        object domain = this.safeString(urlParts, 2);
+        if (isTrue(isEqual(domain, null)))
+        {
+            return null;
+        }
+        return add(add(add(scheme, "//"), domain), "/");
+    }
+
     public override object sign(object path, object api = null, object method = null, object parameters = null, object headers = null, object body = null)
     {
         api ??= "public";
@@ -12595,7 +12438,7 @@ public partial class binance : Exchange
                 {
                     object isSpotOrMargin = (isTrue(isGreaterThan(getIndexOf(api, "sapi"), -1)) || isTrue(isEqual(api, "private")));
                     object marketType = ((bool) isTrue(isSpotOrMargin)) ? "spot" : "future";
-                    object defaultId = ((bool) isTrue((!isTrue(isSpotOrMargin)))) ? "x-xcKtGhcu" : "x-R4BD3S82";
+                    object defaultId = ((bool) isTrue((!isTrue(isSpotOrMargin)))) ? "x-xcKtGhcu" : "x-TKT5PX2F";
                     object broker = this.safeDict(this.options, "broker", new Dictionary<string, object>() {});
                     object brokerId = this.safeString(broker, marketType, defaultId);
                     ((IDictionary<string,object>)parameters)["newClientOrderId"] = add(brokerId, this.uuid22());

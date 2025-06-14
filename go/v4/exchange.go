@@ -6,6 +6,7 @@ import (
 	j "encoding/json"
 	"errors"
 	"fmt"
+	random2 "math/rand"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -17,56 +18,61 @@ import (
 )
 
 type Exchange struct {
-	marketsMutex        sync.Mutex
-	Itf                 interface{}
-	DerivedExchange     IDerivedExchange
-	methodCache         sync.Map
-	cacheLoaded         bool
-	Version             string
-	Id                  string
-	Name                string
-	Options             map[string]interface{}
-	Has                 map[string]interface{}
-	Api                 map[string]interface{}
-	TransformedApi      map[string]interface{}
-	Markets             map[string]interface{}
-	Markets_by_id       map[string]interface{}
-	Currencies_by_id    map[string]interface{}
-	Currencies          map[string]interface{}
-	RequiredCredentials map[string]interface{}
-	HttpExceptions      map[string]interface{}
-	MarketsById         map[string]interface{}
-	Timeframes          map[string]interface{}
-	Features            map[string]interface{}
-	Exceptions          map[string]interface{}
-	Precision           map[string]interface{}
-	Urls                interface{}
-	UserAgents          map[string]interface{}
-	Timeout             int64
-	MAX_VALUE           float64
-	RateLimit           float64
-	TokenBucket         map[string]interface{}
-	Throttler           Throttler
-	NewUpdates          bool
-	Alias               bool
-	Verbose             bool
-	UserAgent           string
-	EnableRateLimit     bool
-	Url                 string
-	Hostname            string
-	BaseCurrencies      map[string]interface{}
-	QuoteCurrencies     map[string]interface{}
-	ReloadingMarkets    bool
-	MarketsLoading      bool
-	Symbols             []string
-	Codes               []string
-	Ids                 []string
-	CommonCurrencies    map[string]interface{}
-	PrecisionMode       int
-	Limits              map[string]interface{}
-	Fees                map[string]interface{}
-	CurrenciesById      map[string]interface{}
-	ReduceFees          bool
+	marketsMutex          sync.Mutex
+	cachedCurrenciesMutex sync.Mutex
+	loadMu        sync.Mutex
+	marketsLoading		bool
+	marketsLoaded bool
+	loadMarketsSubscribers   []chan interface{}
+	Itf                   interface{}
+	DerivedExchange       IDerivedExchange
+	methodCache           sync.Map
+	cacheLoaded           bool
+	Version               string
+	Id                    string
+	Name                  string
+	Options               map[string]interface{}
+	Has                   map[string]interface{}
+	Api                   map[string]interface{}
+	TransformedApi        map[string]interface{}
+	Markets               map[string]interface{}
+	Markets_by_id         *sync.Map
+	Currencies_by_id      *sync.Map
+	Currencies            map[string]interface{}
+	RequiredCredentials   map[string]interface{}
+	HttpExceptions        map[string]interface{}
+	MarketsById           map[string]interface{}
+	Timeframes            map[string]interface{}
+	Features              map[string]interface{}
+	Exceptions            map[string]interface{}
+	Precision             map[string]interface{}
+	Urls                  interface{}
+	UserAgents            map[string]interface{}
+	Timeout               int64
+	MAX_VALUE             float64
+	RateLimit             float64
+	TokenBucket           map[string]interface{}
+	Throttler             Throttler
+	NewUpdates            bool
+	Alias                 bool
+	Verbose               bool
+	UserAgent             string
+	EnableRateLimit       bool
+	Url                   string
+	Hostname              string
+	BaseCurrencies        map[string]interface{}
+	QuoteCurrencies       map[string]interface{}
+	ReloadingMarkets      bool
+	MarketsLoading        bool
+	Symbols               []string
+	Codes                 []string
+	Ids                   []string
+	CommonCurrencies      map[string]interface{}
+	PrecisionMode         int
+	Limits                map[string]interface{}
+	Fees                  map[string]interface{}
+	CurrenciesById        map[string]interface{}
+	ReduceFees            bool
 
 	AccountsById interface{}
 	Accounts     interface{}
@@ -245,7 +251,49 @@ func (this *Exchange) InitThrottler() {
 	this.Throttler = NewThrottler(this.TokenBucket)
 }
 
+/*
+*
+  - @method
+  - @name Exchange#loadMarkets
+  - @description Loads and prepares the markets for trading.
+  - @param {boolean} param.reload - If true, the markets will be reloaded from the exchange.
+  - @param {object} params - Additional exchange-specific parameters for the request.
+  - @throws An error if the markets cannot be loaded or prepared.
+*/
 func (this *Exchange) LoadMarkets(params ...interface{}) <-chan interface{} {
+	reload := GetArg(params, 0, false).(bool)
+	this.loadMu.Lock()
+
+	if this.marketsLoaded && !reload {
+		out := make(chan interface{}, 1)
+		out <- this.Markets
+		close(out)
+		this.loadMu.Unlock()
+		return out
+	}
+
+	ch := make(chan interface{}, 1)
+	this.loadMarketsSubscribers = append(this.loadMarketsSubscribers, ch)
+
+	if !this.marketsLoading || reload {
+		this.marketsLoading = true
+		markets := <- this.LoadMarketsHelper(params...)
+		this.marketsLoaded = true
+		this.marketsLoading = false
+		for _, ch := range this.loadMarketsSubscribers {
+			ch <- markets
+			close(ch)
+		}
+		this.loadMarketsSubscribers = nil
+	}
+
+	this.loadMu.Unlock()
+	return ch
+
+}
+
+
+func (this *Exchange) LoadMarketsHelper(params ...interface{}) <-chan interface{} {
 	ch := make(chan interface{})
 
 	go func() {
@@ -255,29 +303,39 @@ func (this *Exchange) LoadMarkets(params ...interface{}) <-chan interface{} {
 				ch <- "panic:" + ToString(r)
 			}
 		}()
+		reload := GetArg(params, 0, false).(bool)
+		params := GetArg(params, 1, map[string]interface{}{})
 		this.WarmUpCache()
-		if this.Markets != nil && len(this.Markets) > 0 {
-			if this.Markets_by_id == nil && len(this.Markets) > 0 {
-				// Only lock when writing
-				this.marketsMutex.Lock()
-				result := this.SetMarkets(this.Markets, nil)
-				this.marketsMutex.Unlock()
-				ch <- result
+		if !reload {
+			if this.Markets != nil && len(this.Markets) > 0 {
+				if this.Markets_by_id == nil && len(this.Markets) > 0 {
+					// Only lock when writing
+					this.marketsMutex.Lock()
+					result := this.SetMarkets(this.Markets, nil)
+					this.marketsMutex.Unlock()
+					ch <- result
+					return
+				}
+				ch <- this.Markets
 				return
 			}
-			ch <- this.Markets
-			return
 		}
 
 		var currencies interface{} = nil
-		var defaultParams = map[string]interface{}{}
 		hasFetchCurrencies := this.Has["fetchCurrencies"]
 		if IsBool(hasFetchCurrencies) && IsTrue(hasFetchCurrencies) {
-			currencies = <-this.DerivedExchange.FetchCurrencies(defaultParams)
+			currencies = <-this.DerivedExchange.FetchCurrencies(params)
+			this.cachedCurrenciesMutex.Lock()
+			this.Options["cachedCurrencies"] = currencies
+			this.cachedCurrenciesMutex.Unlock()
 		}
 
-		markets := <-this.DerivedExchange.FetchMarkets(defaultParams)
+		markets := <-this.DerivedExchange.FetchMarkets(params)
 		PanicOnError(markets)
+
+		this.cachedCurrenciesMutex.Lock()
+		delete(this.Options, "cachedCurrencies")
+		this.cachedCurrenciesMutex.Unlock()
 
 		// Lock only for writing
 		this.marketsMutex.Lock()
@@ -400,14 +458,20 @@ func (this *Exchange) callEndpoint(endpoint2 interface{}, parameters interface{}
 			res := <-this.Fetch2(path, api, method, parameters, map[string]interface{}{}, nil, map[string]interface{}{"cost": cost})
 			PanicOnError(res)
 			ch <- res
+		} else {
+			ch <- nil
 		}
-		ch <- nil
 	}()
 	return ch
 }
 
 func (this *Exchange) ConvertToBigInt(data interface{}) interface{} {
 	return ParseInt(data)
+}
+
+func (this *Exchange) CreateSafeDictionary() *sync.Map {
+	// Create a new sync.Map to hold the safe dictionary
+	return &sync.Map{}
 }
 
 // error related functions
@@ -512,9 +576,9 @@ func (this *Exchange) ValueIsDefined(v interface{}) bool {
 	return v != nil
 }
 
-func (this *Exchange) CreateSafeDictionary() interface{} {
-	return map[string]interface{}{}
-}
+// func (this *Exchange) CreateSafeDictionary() interface{} {
+// 	return map[string]interface{}{}
+// }
 
 func (this *Exchange) ConvertToSafeDictionary(data interface{}) interface{} {
 	return data
@@ -1098,6 +1162,37 @@ func (this *Exchange) StarknetSign(a interface{}, b interface{}) interface{} {
 	return nil // to do
 }
 
+func (this *Exchange) GetZKContractSignatureObj(seed interface{}, params interface{}) <-chan interface{} {
+	ch := make(chan interface{})
+
+	go func() {
+		defer close(ch)
+		defer func() {
+			if r := recover(); r != nil {
+				ch <- "panic:" + ToString(r)
+			}
+		}()
+
+		ch <- "panic:" + "Apex currently does not support create order in Go language"
+	}()
+	return ch
+}
+func (this *Exchange) GetZKTransferSignatureObj(seed interface{}, params interface{}) <-chan interface{} {
+	ch := make(chan interface{})
+
+	go func() {
+		defer close(ch)
+		defer func() {
+			if r := recover(); r != nil {
+				ch <- "panic:" + ToString(r)
+			}
+		}()
+
+		ch <- "panic:" + "Apex currently does not support transfer asset in Go language"
+	}()
+	return ch
+}
+
 func (this *Exchange) ExtendExchangeOptions(options2 interface{}) {
 	options := options2.(map[string]interface{})
 	extended := this.Extend(this.Options, options)
@@ -1106,6 +1201,31 @@ func (this *Exchange) ExtendExchangeOptions(options2 interface{}) {
 
 // func (this *Exchange) Init(userConfig map[string]interface{}) {
 // }
+
+func (this *Exchange) RandNumber(size interface{}) int64 {
+	// Try casting interface{} to int
+	intSize, ok := size.(int)
+	if !ok {
+		fmt.Println("Invalid size type; expected int")
+		return 0
+	}
+
+	random2.Seed(time.Now().UnixNano())
+	number := ""
+
+	for i := 0; i < intSize; i++ {
+		digit := random2.Intn(10) // Random digit 0-9
+		number += strconv.Itoa(digit)
+	}
+
+	result, err := strconv.ParseInt(number, 10, 64)
+	if err != nil {
+		fmt.Println("Error converting string to int64:", err)
+		return 0
+	}
+
+	return result
+}
 
 func (this *Exchange) UpdateProxySettings() {
 	proxyUrl := this.CheckProxyUrlSettings(nil, nil, nil, nil)

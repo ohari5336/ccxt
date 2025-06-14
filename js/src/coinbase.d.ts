@@ -1,5 +1,5 @@
 import Exchange from './abstract/coinbase.js';
-import type { Int, OrderSide, OrderType, Order, Trade, OHLCV, Ticker, OrderBook, Str, Transaction, Balances, Tickers, Strings, Market, Currency, Num, Account, Currencies, MarketInterface, Conversion, Dict, int, TradingFees, LedgerEntry, DepositAddress } from './base/types.js';
+import type { Int, OrderSide, OrderType, Order, Trade, OHLCV, Ticker, OrderBook, Str, Transaction, Balances, Tickers, Strings, Market, Currency, Num, Account, Currencies, MarketInterface, Conversion, Dict, int, TradingFees, LedgerEntry, DepositAddress, Position } from './base/types.js';
 /**
  * @class coinbase
  * @augments Exchange
@@ -53,12 +53,7 @@ export default class coinbase extends Exchange {
      * @param {object} [params] extra parameters specific to the exchange API endpoint
      * @returns {object} an [address structure]{@link https://docs.ccxt.com/#/?id=address-structure}
      */
-    createDepositAddress(code: string, params?: {}): Promise<{
-        currency: string;
-        tag: string;
-        address: string;
-        info: any;
-    }>;
+    createDepositAddress(code: string, params?: {}): Promise<DepositAddress>;
     /**
      * @method
      * @name coinbase#fetchMySells
@@ -580,7 +575,7 @@ export default class coinbase extends Exchange {
      * @param {string} [params.portfolio] the portfolio UUID to fetch positions for
      * @returns {object[]} a list of [position structure]{@link https://docs.ccxt.com/#/?id=position-structure}
      */
-    fetchPositions(symbols?: Strings, params?: {}): Promise<import("./base/types.js").Position[]>;
+    fetchPositions(symbols?: Strings, params?: {}): Promise<Position[]>;
     /**
      * @method
      * @name coinbase#fetchPosition
@@ -593,8 +588,8 @@ export default class coinbase extends Exchange {
      * @param {string} [params.portfolio] *perpetual/swaps only* the portfolio UUID to fetch the position for, required for perpetual/swaps markets only
      * @returns {object} a [position structure]{@link https://docs.ccxt.com/#/?id=position-structure}
      */
-    fetchPosition(symbol: string, params?: {}): Promise<import("./base/types.js").Position>;
-    parsePosition(position: Dict, market?: Market): import("./base/types.js").Position;
+    fetchPosition(symbol: string, params?: {}): Promise<Position>;
+    parsePosition(position: Dict, market?: Market): Position;
     /**
      * @method
      * @name coinbase#fetchTradingFees
