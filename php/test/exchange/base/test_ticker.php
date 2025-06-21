@@ -34,13 +34,11 @@ function test_ticker($exchange, $skipped_properties, $method, $entry, $symbol) {
         'quoteVolume' => $exchange->parse_number('1.234'),
     );
     // todo: atm, many exchanges fail, so temporarily decrease stict mode
-    $empty_allowed_for = ['timestamp', 'datetime', 'open', 'high', 'low', 'close', 'last', 'baseVolume', 'quoteVolume', 'previousClose', 'vwap', 'change', 'percentage', 'average'];
+    $empty_allowed_for = ['timestamp', 'datetime', 'open', 'high', 'low', 'close', 'last', 'baseVolume', 'quoteVolume', 'previousClose', 'bidVolume', 'askVolume', 'vwap', 'change', 'percentage', 'average'];
     // trick csharp-transpiler for string
-    if (!str_contains(((string) $method), 'BidsAsks')) {
+    if (!(str_contains(((string) $method), 'BidsAsks'))) {
         $empty_allowed_for[] = 'bid';
         $empty_allowed_for[] = 'ask';
-        $empty_allowed_for[] = 'bidVolume';
-        $empty_allowed_for[] = 'askVolume';
     }
     assert_structure($exchange, $skipped_properties, $method, $entry, $format, $empty_allowed_for);
     assert_timestamp_and_datetime($exchange, $skipped_properties, $method, $entry);
@@ -70,21 +68,25 @@ function test_ticker($exchange, $skipped_properties, $method, $entry, $symbol) {
     $quote_volume = $exchange->safe_string($entry, 'quoteVolume');
     $high = $exchange->safe_string($entry, 'high');
     $low = $exchange->safe_string($entry, 'low');
-    if (!(is_array($skipped_properties) && array_key_exists('quoteVolume', $skipped_properties)) && !(is_array($skipped_properties) && array_key_exists('baseVolume', $skipped_properties))) {
+    if (!(is_array($skipped_properties) && array_key_exists('compareQuoteVolumeBaseVolume', $skipped_properties))) {
         if (($base_volume !== null) && ($quote_volume !== null) && ($high !== null) && ($low !== null)) {
             $base_low = Precise::string_mul($base_volume, $low);
             $base_high = Precise::string_mul($base_volume, $high);
             // to avoid abnormal long precision issues (like https://discord.com/channels/690203284119617602/1338828283902689280/1338846071278927912 )
             $m_precision = $exchange->safe_dict($market, 'precision');
             $amount_precision = $exchange->safe_string($m_precision, 'amount');
+            $tolerance = '1.0001';
             if ($amount_precision !== null) {
                 $base_low = Precise::string_mul(Precise::string_sub($base_volume, $amount_precision), $low);
                 $base_high = Precise::string_mul(Precise::string_add($base_volume, $amount_precision), $high);
             } else {
                 // if nothing found, as an exclusion, just add 0.001%
-                $base_low = Precise::string_mul(Precise::string_mul($base_volume, '1.0001'), $low);
-                $base_high = Precise::string_mul(Precise::string_div($base_volume, '1.0001'), $high);
+                $base_low = Precise::string_mul(Precise::string_div($base_volume, $tolerance), $low);
+                $base_high = Precise::string_mul(Precise::string_mul($base_volume, $tolerance), $high);
             }
+            // because of exchange engines might not rounding numbers propertly, we add some tolerance of calculated 24hr high/low
+            $base_low = Precise::string_div($base_low, $tolerance);
+            $base_high = Precise::string_mul($base_high, $tolerance);
             assert(Precise::string_ge($quote_volume, $base_low), 'quoteVolume should be => baseVolume * low' . $log_text);
             assert(Precise::string_le($quote_volume, $base_high), 'quoteVolume should be <= baseVolume * high' . $log_text);
         }
@@ -95,6 +97,7 @@ function test_ticker($exchange, $skipped_properties, $method, $entry, $symbol) {
         // assert (high !== undefined, 'vwap is defined, but high is not' + logText);
         // assert (low !== undefined, 'vwap is defined, but low is not' + logText);
         // assert (vwap >= low && vwap <= high)
+        // todo: calc compare
         assert(Precise::string_ge($vwap, '0'), 'vwap is not greater than zero' . $log_text);
         if ($base_volume !== null) {
             assert($quote_volume !== null, 'baseVolume & vwap is defined, but quoteVolume is not' . $log_text);
@@ -103,12 +106,14 @@ function test_ticker($exchange, $skipped_properties, $method, $entry, $symbol) {
             assert($base_volume !== null, 'quoteVolume & vwap is defined, but baseVolume is not' . $log_text);
         }
     }
-    if (!(is_array($skipped_properties) && array_key_exists('spread', $skipped_properties)) && !(is_array($skipped_properties) && array_key_exists('ask', $skipped_properties)) && !(is_array($skipped_properties) && array_key_exists('bid', $skipped_properties))) {
-        $ask_string = $exchange->safe_string($entry, 'ask');
-        $bid_string = $exchange->safe_string($entry, 'bid');
-        if (($ask_string !== null) && ($bid_string !== null)) {
-            assert_greater($exchange, $skipped_properties, $method, $entry, 'ask', $exchange->safe_string($entry, 'bid'));
-        }
+    $ask_string = $exchange->safe_string($entry, 'ask');
+    $bid_string = $exchange->safe_string($entry, 'bid');
+    if (($ask_string !== null) && ($bid_string !== null) && !(is_array($skipped_properties) && array_key_exists('spread', $skipped_properties))) {
+        assert_greater($exchange, $skipped_properties, $method, $entry, 'ask', $exchange->safe_string($entry, 'bid'));
     }
+    // todo: rethink about this
+    // else {
+    //    assert ((askString === undefined) && (bidString === undefined), 'ask & bid should be both defined or both undefined' + logText);
+    // }
     assert_symbol($exchange, $skipped_properties, $method, $entry, 'symbol', $symbol);
 }

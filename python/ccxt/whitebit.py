@@ -6,7 +6,7 @@
 from ccxt.base.exchange import Exchange
 from ccxt.abstract.whitebit import ImplicitAPI
 import hashlib
-from ccxt.base.types import Any, Balances, BorrowInterest, Bool, Conversion, Currencies, Currency, DepositAddress, FundingHistory, Int, Market, MarketType, Num, Order, OrderBook, OrderSide, OrderType, Position, Str, Strings, Ticker, Tickers, FundingRate, FundingRates, Trade, TradingFees, Transaction, TransferEntry
+from ccxt.base.types import Any, Balances, BorrowInterest, Bool, Conversion, CrossBorrowRate, Currencies, Currency, DepositAddress, FundingHistory, Int, Market, MarketType, Num, Order, OrderBook, OrderSide, OrderType, Position, Str, Strings, Ticker, Tickers, FundingRate, FundingRates, Trade, TradingFees, Transaction, TransferEntry
 from typing import List
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import AuthenticationError
@@ -46,13 +46,16 @@ class whitebit(Exchange, ImplicitAPI):
                 'cancelOrder': True,
                 'cancelOrders': False,
                 'createConvertTrade': True,
+                'createDepositAddress': True,
                 'createMarketBuyOrderWithCost': True,
                 'createMarketOrderWithCost': False,
                 'createMarketSellOrderWithCost': False,
                 'createOrder': True,
+                'createPostOnlyOrder': True,
                 'createStopLimitOrder': True,
                 'createStopMarketOrder': True,
                 'createStopOrder': True,
+                'createTriggerOrder': True,
                 'editOrder': False,
                 'fetchBalance': True,
                 'fetchBorrowRateHistories': False,
@@ -61,7 +64,7 @@ class whitebit(Exchange, ImplicitAPI):
                 'fetchConvertQuote': True,
                 'fetchConvertTrade': False,
                 'fetchConvertTradeHistory': True,
-                'fetchCrossBorrowRate': False,
+                'fetchCrossBorrowRate': True,
                 'fetchCrossBorrowRates': False,
                 'fetchCurrencies': True,
                 'fetchDeposit': True,
@@ -551,40 +554,120 @@ class whitebit(Exchange, ImplicitAPI):
         """
         response = self.v4PublicGetAssets(params)
         #
-        #      "BTC": {
-        #          "name": "Bitcoin",
-        #          "unified_cryptoasset_id": 1,
-        #          "can_withdraw": True,
-        #          "can_deposit": True,
-        #          "min_withdraw": "0.001",
-        #          "max_withdraw": "2",
-        #          "maker_fee": "0.1",
-        #          "taker_fee": "0.1",
-        #          "min_deposit": "0.0001",
-        #           "max_deposit": "0",
-        #       },
+        # {
+        #   BTC: {
+        #     name: "Bitcoin",
+        #     unified_cryptoasset_id: "1",
+        #     can_withdraw: True,
+        #     can_deposit: True,
+        #     min_withdraw: "0.0003",
+        #     max_withdraw: "0",
+        #     maker_fee: "0.1",
+        #     taker_fee: "0.1",
+        #     min_deposit: "0.0001",
+        #     max_deposit: "0",
+        #     networks: {
+        #         deposits: ["BTC",],
+        #         withdraws: ["BTC",],
+        #         default: "BTC",
+        #     },
+        #     confirmations: {
+        #         BTC: "2",
+        #     },
+        #     limits: {
+        #         deposit: {
+        #            BTC: {min: "0.0001",},
+        #         },
+        #         withdraw: {
+        #            BTC: {min: "0.0003",},
+        #         },
+        #     },
+        #     currency_precision: "8",
+        #     is_memo: False,
+        #   },
+        #   USD: {
+        #         name: "United States Dollar",
+        #         unified_cryptoasset_id: "6955",
+        #         can_withdraw: True,
+        #         can_deposit: True,
+        #         min_withdraw: "10",
+        #         max_withdraw: "10000",
+        #         maker_fee: "0.1",
+        #         taker_fee: "0.1",
+        #         min_deposit: "10",
+        #         max_deposit: "10000",
+        #         networks: {
+        #           deposits: ["USD",],
+        #           withdraws: ["USD",],
+        #           default: "USD",
+        #         },
+        #         providers: {
+        #           deposits: ["ADVCASH",],
+        #           withdraws: ["ADVCASH",],
+        #         },
+        #         limits: {
+        #           deposit: {
+        #             USD: { max: "10000", min: "10",},
+        #           },
+        #           withdraw: {
+        #             USD: {max: "10000",  min: "10",},
+        #           },
+        #         },
+        #         currency_precision: "2",
+        #         is_memo: False,
+        #   }
+        # }
         #
         ids = list(response.keys())
         result: dict = {}
         for i in range(0, len(ids)):
             id = ids[i]
             currency = response[id]
-            # breaks down in Python due to utf8 encoding issues on the exchange side
-            # name = self.safe_string(currency, 'name')
-            canDeposit = self.safe_bool(currency, 'can_deposit', True)
-            canWithdraw = self.safe_bool(currency, 'can_withdraw', True)
-            active = canDeposit and canWithdraw
+            # name = self.safe_string(currency, 'name')  # breaks down in Python due to utf8 encoding issues on the exchange side
             code = self.safe_currency_code(id)
-            result[code] = {
+            hasProvider = ('providers' in currency)
+            networks = {}
+            rawNetworks = self.safe_dict(currency, 'networks', {})
+            depositsNetworks = self.safe_list(rawNetworks, 'deposits', [])
+            withdrawsNetworks = self.safe_list(rawNetworks, 'withdraws', [])
+            networkLimits = self.safe_dict(currency, 'limits', {})
+            depositLimits = self.safe_dict(networkLimits, 'deposit', {})
+            withdrawLimits = self.safe_dict(networkLimits, 'withdraw', {})
+            allNetworks = self.array_concat(depositsNetworks, withdrawsNetworks)
+            for j in range(0, len(allNetworks)):
+                networkId = allNetworks[j]
+                networkCode = self.network_id_to_code(networkId)
+                networks[networkCode] = {
+                    'id': networkId,
+                    'network': networkCode,
+                    'active': None,
+                    'deposit': self.in_array(networkId, depositsNetworks),
+                    'withdraw': self.in_array(networkId, withdrawsNetworks),
+                    'fee': None,
+                    'precision': None,
+                    'limits': {
+                        'deposit': {
+                            'min': self.safe_number(depositLimits, 'min', None),
+                            'max': self.safe_number(depositLimits, 'max', None),
+                        },
+                        'withdraw': {
+                            'min': self.safe_number(withdrawLimits, 'min', None),
+                            'max': self.safe_number(withdrawLimits, 'max', None),
+                        },
+                    },
+                }
+            result[code] = self.safe_currency_structure({
                 'id': id,
                 'code': code,
                 'info': currency,  # the original payload
                 'name': None,  # see the comment above
-                'active': active,
-                'deposit': canDeposit,
-                'withdraw': canWithdraw,
+                'active': None,
+                'deposit': self.safe_bool(currency, 'can_deposit'),
+                'withdraw': self.safe_bool(currency, 'can_withdraw'),
                 'fee': None,
-                'precision': None,
+                'networks': None,  # todo
+                'type': 'fiat' if hasProvider else 'crypto',
+                'precision': self.parse_number(self.parse_precision(self.safe_string(currency, 'currency_precision'))),
                 'limits': {
                     'amount': {
                         'min': None,
@@ -594,8 +677,12 @@ class whitebit(Exchange, ImplicitAPI):
                         'min': self.safe_number(currency, 'min_withdraw'),
                         'max': self.safe_number(currency, 'max_withdraw'),
                     },
+                    'deposit': {
+                        'min': self.safe_number(currency, 'min_deposit'),
+                        'max': self.safe_number(currency, 'max_deposit'),
+                    },
                 },
-            }
+            })
         return result
 
     def fetch_transaction_fees(self, codes: Strings = None, params={}):
@@ -1375,6 +1462,10 @@ class whitebit(Exchange, ImplicitAPI):
         :param float [price]: the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param float [params.cost]: *market orders only* the cost of the order in units of the base currency
+        :param float [params.triggerPrice]: The price at which a trigger order is triggered at
+        :param bool [params.postOnly]: If True, the order will only be posted to the order book and not executed immediately
+        :param str [params.clientOrderId]: a unique id for the order
+        :param str [params.marginMode]: 'cross' or 'isolated', for margin trading, uses self.options.defaultMarginMode if not passed, defaults to None/None/None
         :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>`
         """
         self.load_markets()
@@ -1999,6 +2090,60 @@ class whitebit(Exchange, ImplicitAPI):
             'network': None,
             'address': address,
             'tag': tag,
+        }
+
+    def create_deposit_address(self, code: str, params={}) -> DepositAddress:
+        """
+        create a currency deposit address
+
+        https://docs.whitebit.com/private/http-main-v4/#create-new-address-for-deposit
+
+        :param str code: unified currency code of the currency for the deposit address
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str [params.network]: the blockchain network to create a deposit address on
+        :param str [params.type]: address type, available for specific currencies
+        :returns dict: an `address structure <https://docs.ccxt.com/#/?id=address-structure>`
+        """
+        self.load_markets()
+        currency = self.currency(code)
+        request: dict = {
+            'ticker': currency['id'],
+        }
+        response = self.v4PrivatePostMainAccountCreateNewAddress(self.extend(request, params))
+        #
+        #     {
+        #         "account": {
+        #             "address": "GDTSOI56XNVAKJNJBLJGRNZIVOCIZJRBIDKTWSCYEYNFAZEMBLN75RMN",
+        #             "memo": "48565488244493"
+        #         },
+        #         "required": {
+        #             "maxAmount": "0",
+        #             "minAmount": "1",
+        #             "fixedFee": "0",
+        #             "flexFee": {
+        #                 "maxFee": "0",
+        #                 "minFee": "0",
+        #                 "percent": "0"
+        #             }
+        #         }
+        #     }
+        #
+        data = self.safe_dict(response, 'account', {})
+        return self.parse_deposit_address(data, currency)
+
+    def parse_deposit_address(self, depositAddress, currency: Currency = None) -> DepositAddress:
+        #
+        #     {
+        #         "address": "GDTSOI56XNVAKJNJBLJGRNZIVOCIZJRBIDKTWSCYEYNFAZEMBLN75RMN",
+        #         "memo": "48565488244493"
+        #     },
+        #
+        return {
+            'info': depositAddress,
+            'currency': self.safe_currency_code(None, currency),
+            'network': None,
+            'address': self.safe_string(depositAddress, 'address'),
+            'tag': self.safe_string(depositAddress, 'memo'),
         }
 
     def set_leverage(self, leverage: Int, symbol: Str = None, params={}):
@@ -3068,6 +3213,41 @@ class whitebit(Exchange, ImplicitAPI):
             'stopLossPrice': self.safe_number(tpsl, 'stopLoss'),
             'takeProfitPrice': self.safe_number(tpsl, 'takeProfit'),
         })
+
+    def fetch_cross_borrow_rate(self, code: str, params={}) -> CrossBorrowRate:
+        """
+        fetch the rate of interest to borrow a currency for margin trading
+
+        https://docs.whitebit.com/private/http-main-v4/#get-plans
+
+        :param str code: unified currency code
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :returns dict: a `borrow rate structure <https://docs.ccxt.com/#/?id=borrow-rate-structure>`
+        """
+        self.load_markets()
+        currency = self.currency(code)
+        request: dict = {
+            'ticker': currency['id'],
+        }
+        response = self.v4PrivatePostMainAccountSmartPlans(self.extend(request, params))
+        #
+        #
+        data = self.safe_list(response, 0, [])
+        return self.parse_borrow_rate(data, currency)
+
+    def parse_borrow_rate(self, info, currency: Currency = None):
+        #
+        #
+        currencyId = self.safe_string(info, 'ticker')
+        percent = self.safe_string(info, 'percent')
+        return {
+            'currency': self.safe_currency_code(currencyId, currency),
+            'rate': self.parse_number(Precise.string_div(percent, '100')),
+            'period': self.safe_integer(info, 'duration'),
+            'timestamp': None,
+            'datetime': None,
+            'info': info,
+        }
 
     def is_fiat(self, currency: str) -> bool:
         fiatCurrencies = self.safe_value(self.options, 'fiatCurrencies', [])

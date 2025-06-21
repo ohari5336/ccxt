@@ -39,13 +39,16 @@ class whitebit extends Exchange {
                 'cancelOrder' => true,
                 'cancelOrders' => false,
                 'createConvertTrade' => true,
+                'createDepositAddress' => true,
                 'createMarketBuyOrderWithCost' => true,
                 'createMarketOrderWithCost' => false,
                 'createMarketSellOrderWithCost' => false,
                 'createOrder' => true,
+                'createPostOnlyOrder' => true,
                 'createStopLimitOrder' => true,
                 'createStopMarketOrder' => true,
                 'createStopOrder' => true,
+                'createTriggerOrder' => true,
                 'editOrder' => false,
                 'fetchBalance' => true,
                 'fetchBorrowRateHistories' => false,
@@ -54,7 +57,7 @@ class whitebit extends Exchange {
                 'fetchConvertQuote' => true,
                 'fetchConvertTrade' => false,
                 'fetchConvertTradeHistory' => true,
-                'fetchCrossBorrowRate' => false,
+                'fetchCrossBorrowRate' => true,
                 'fetchCrossBorrowRates' => false,
                 'fetchCurrencies' => true,
                 'fetchDeposit' => true,
@@ -551,40 +554,121 @@ class whitebit extends Exchange {
              */
             $response = Async\await($this->v4PublicGetAssets ($params));
             //
-            //      "BTC" => array(
-            //          "name" => "Bitcoin",
-            //          "unified_cryptoasset_id" => 1,
-            //          "can_withdraw" => true,
-            //          "can_deposit" => true,
-            //          "min_withdraw" => "0.001",
-            //          "max_withdraw" => "2",
-            //          "maker_fee" => "0.1",
-            //          "taker_fee" => "0.1",
-            //          "min_deposit" => "0.0001",
-            //           "max_deposit" => "0",
-            //       ),
+            // {
+            //   BTC => array(
+            //     $name => "Bitcoin",
+            //     unified_cryptoasset_id => "1",
+            //     can_withdraw => true,
+            //     can_deposit => true,
+            //     min_withdraw => "0.0003",
+            //     max_withdraw => "0",
+            //     maker_fee => "0.1",
+            //     taker_fee => "0.1",
+            //     min_deposit => "0.0001",
+            //     max_deposit => "0",
+            //     $networks => array(
+            //         deposits => array( "BTC", ),
+            //         withdraws => array( "BTC", ),
+            //         default => "BTC",
+            //     ),
+            //     confirmations => array(
+            //         BTC => "2",
+            //     ),
+            //     limits => array(
+            //         deposit => array(
+            //            BTC => array( min => "0.0001", ),
+            //         ),
+            //         withdraw => array(
+            //            BTC => array( min => "0.0003", ),
+            //         ),
+            //     ),
+            //     currency_precision => "8",
+            //     is_memo => false,
+            //   ),
+            //   USD => {
+            //         $name => "United States Dollar",
+            //         unified_cryptoasset_id => "6955",
+            //         can_withdraw => true,
+            //         can_deposit => true,
+            //         min_withdraw => "10",
+            //         max_withdraw => "10000",
+            //         maker_fee => "0.1",
+            //         taker_fee => "0.1",
+            //         min_deposit => "10",
+            //         max_deposit => "10000",
+            //         $networks => array(
+            //           deposits => array( "USD", ),
+            //           withdraws => array( "USD", ),
+            //           default => "USD",
+            //         ),
+            //         providers => array(
+            //           deposits => array( "ADVCASH", ),
+            //           withdraws => array( "ADVCASH", ),
+            //         ),
+            //         limits => array(
+            //           deposit => array(
+            //             USD => array(  max => "10000", min => "10", ),
+            //           ),
+            //           withdraw => array(
+            //             USD => array( max => "10000",  min => "10", ),
+            //           ),
+            //         ),
+            //         currency_precision => "2",
+            //         is_memo => false,
+            //   }
+            // }
             //
             $ids = is_array($response) ? array_keys($response) : array();
             $result = array();
             for ($i = 0; $i < count($ids); $i++) {
                 $id = $ids[$i];
                 $currency = $response[$id];
-                // breaks down in Python due to utf8 encoding issues on the exchange side
-                // $name = $this->safe_string($currency, 'name');
-                $canDeposit = $this->safe_bool($currency, 'can_deposit', true);
-                $canWithdraw = $this->safe_bool($currency, 'can_withdraw', true);
-                $active = $canDeposit && $canWithdraw;
+                // $name = $this->safe_string($currency, 'name'); // breaks down in Python due to utf8 encoding issues on the exchange side
                 $code = $this->safe_currency_code($id);
-                $result[$code] = array(
+                $hasProvider = (is_array($currency) && array_key_exists('providers', $currency));
+                $networks = array();
+                $rawNetworks = $this->safe_dict($currency, 'networks', array());
+                $depositsNetworks = $this->safe_list($rawNetworks, 'deposits', array());
+                $withdrawsNetworks = $this->safe_list($rawNetworks, 'withdraws', array());
+                $networkLimits = $this->safe_dict($currency, 'limits', array());
+                $depositLimits = $this->safe_dict($networkLimits, 'deposit', array());
+                $withdrawLimits = $this->safe_dict($networkLimits, 'withdraw', array());
+                $allNetworks = $this->array_concat($depositsNetworks, $withdrawsNetworks);
+                for ($j = 0; $j < count($allNetworks); $j++) {
+                    $networkId = $allNetworks[$j];
+                    $networkCode = $this->network_id_to_code($networkId);
+                    $networks[$networkCode] = array(
+                        'id' => $networkId,
+                        'network' => $networkCode,
+                        'active' => null,
+                        'deposit' => $this->in_array($networkId, $depositsNetworks),
+                        'withdraw' => $this->in_array($networkId, $withdrawsNetworks),
+                        'fee' => null,
+                        'precision' => null,
+                        'limits' => array(
+                            'deposit' => array(
+                                'min' => $this->safe_number($depositLimits, 'min', null),
+                                'max' => $this->safe_number($depositLimits, 'max', null),
+                            ),
+                            'withdraw' => array(
+                                'min' => $this->safe_number($withdrawLimits, 'min', null),
+                                'max' => $this->safe_number($withdrawLimits, 'max', null),
+                            ),
+                        ),
+                    );
+                }
+                $result[$code] = $this->safe_currency_structure(array(
                     'id' => $id,
                     'code' => $code,
                     'info' => $currency, // the original payload
                     'name' => null, // see the comment above
-                    'active' => $active,
-                    'deposit' => $canDeposit,
-                    'withdraw' => $canWithdraw,
+                    'active' => null,
+                    'deposit' => $this->safe_bool($currency, 'can_deposit'),
+                    'withdraw' => $this->safe_bool($currency, 'can_withdraw'),
                     'fee' => null,
-                    'precision' => null,
+                    'networks' => null, // todo
+                    'type' => $hasProvider ? 'fiat' : 'crypto',
+                    'precision' => $this->parse_number($this->parse_precision($this->safe_string($currency, 'currency_precision'))),
                     'limits' => array(
                         'amount' => array(
                             'min' => null,
@@ -594,8 +678,12 @@ class whitebit extends Exchange {
                             'min' => $this->safe_number($currency, 'min_withdraw'),
                             'max' => $this->safe_number($currency, 'max_withdraw'),
                         ),
+                        'deposit' => array(
+                            'min' => $this->safe_number($currency, 'min_deposit'),
+                            'max' => $this->safe_number($currency, 'max_deposit'),
+                        ),
                     ),
-                );
+                ));
             }
             return $result;
         }) ();
@@ -1441,6 +1529,10 @@ class whitebit extends Exchange {
              * @param {float} [$price] the $price at which the order is to be fulfilled, in units of the quote currency, ignored in $market orders
              * @param {array} [$params] extra parameters specific to the exchange API endpoint
              * @param {float} [$params->cost] *$market orders only* the $cost of the order in units of the base currency
+             * @param {float} [$params->triggerPrice] The $price at which a trigger order is triggered at
+             * @param {bool} [$params->postOnly] If true, the order will only be posted to the order book and not executed immediately
+             * @param {string} [$params->clientOrderId] a unique id for the order
+             * @param {string} [$params->marginMode] 'cross' or 'isolated', for margin trading, uses $this->options.defaultMarginMode if not passed, defaults to null/None/null
              * @return {array} an ~@link https://docs.ccxt.com/#/?id=order-structure order structure~
              */
             Async\await($this->load_markets());
@@ -2143,6 +2235,64 @@ class whitebit extends Exchange {
                 'tag' => $tag,
             );
         }) ();
+    }
+
+    public function create_deposit_address(string $code, $params = array ()): PromiseInterface {
+        return Async\async(function () use ($code, $params) {
+            /**
+             * create a $currency deposit address
+             *
+             * @see https://docs.whitebit.com/private/http-main-v4/#create-new-address-for-deposit
+             *
+             * @param {string} $code unified $currency $code of the $currency for the deposit address
+             * @param {array} [$params] extra parameters specific to the exchange API endpoint
+             * @param {string} [$params->network] the blockchain network to create a deposit address on
+             * @param {string} [$params->type] address type, available for specific currencies
+             * @return {array} an ~@link https://docs.ccxt.com/#/?id=address-structure address structure~
+             */
+            Async\await($this->load_markets());
+            $currency = $this->currency($code);
+            $request = array(
+                'ticker' => $currency['id'],
+            );
+            $response = Async\await($this->v4PrivatePostMainAccountCreateNewAddress ($this->extend($request, $params)));
+            //
+            //     {
+            //         "account" => array(
+            //             "address" => "GDTSOI56XNVAKJNJBLJGRNZIVOCIZJRBIDKTWSCYEYNFAZEMBLN75RMN",
+            //             "memo" => "48565488244493"
+            //         ),
+            //         "required" => {
+            //             "maxAmount" => "0",
+            //             "minAmount" => "1",
+            //             "fixedFee" => "0",
+            //             "flexFee" => {
+            //                 "maxFee" => "0",
+            //                 "minFee" => "0",
+            //                 "percent" => "0"
+            //             }
+            //         }
+            //     }
+            //
+            $data = $this->safe_dict($response, 'account', array());
+            return $this->parse_deposit_address($data, $currency);
+        }) ();
+    }
+
+    public function parse_deposit_address($depositAddress, ?array $currency = null): array {
+        //
+        //     array(
+        //         "address" => "GDTSOI56XNVAKJNJBLJGRNZIVOCIZJRBIDKTWSCYEYNFAZEMBLN75RMN",
+        //         "memo" => "48565488244493"
+        //     ),
+        //
+        return array(
+            'info' => $depositAddress,
+            'currency' => $this->safe_currency_code(null, $currency),
+            'network' => null,
+            'address' => $this->safe_string($depositAddress, 'address'),
+            'tag' => $this->safe_string($depositAddress, 'memo'),
+        );
     }
 
     public function set_leverage(?int $leverage, ?string $symbol = null, $params = array ()) {
@@ -3289,6 +3439,45 @@ class whitebit extends Exchange {
             'stopLossPrice' => $this->safe_number($tpsl, 'stopLoss'),
             'takeProfitPrice' => $this->safe_number($tpsl, 'takeProfit'),
         ));
+    }
+
+    public function fetch_cross_borrow_rate(string $code, $params = array ()): PromiseInterface {
+        return Async\async(function () use ($code, $params) {
+            /**
+             * fetch the rate of interest to borrow a $currency for margin trading
+             *
+             * @see https://docs.whitebit.com/private/http-main-v4/#get-plans
+             *
+             * @param {string} $code unified $currency $code
+             * @param {array} [$params] extra parameters specific to the exchange API endpoint
+             * @return {array} a ~@link https://docs.ccxt.com/#/?id=borrow-rate-structure borrow rate structure~
+             */
+            Async\await($this->load_markets());
+            $currency = $this->currency($code);
+            $request = array(
+                'ticker' => $currency['id'],
+            );
+            $response = Async\await($this->v4PrivatePostMainAccountSmartPlans ($this->extend($request, $params)));
+            //
+            //
+            $data = $this->safe_list($response, 0, array());
+            return $this->parse_borrow_rate($data, $currency);
+        }) ();
+    }
+
+    public function parse_borrow_rate($info, ?array $currency = null) {
+        //
+        //
+        $currencyId = $this->safe_string($info, 'ticker');
+        $percent = $this->safe_string($info, 'percent');
+        return array(
+            'currency' => $this->safe_currency_code($currencyId, $currency),
+            'rate' => $this->parse_number(Precise::string_div($percent, '100')),
+            'period' => $this->safe_integer($info, 'duration'),
+            'timestamp' => null,
+            'datetime' => null,
+            'info' => $info,
+        );
     }
 
     public function is_fiat(string $currency): bool {
